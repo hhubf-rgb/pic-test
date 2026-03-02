@@ -4,107 +4,147 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --wechat-green: #07C160; --wechat-red: #FA5151; }
-        body { font-family: sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        .nav-bar { background: white; padding: 10px; border-bottom: 1px solid #ddd; text-align: center; font-weight: bold; }
-        .reading-area { flex: 1; padding: 20px; overflow-y: auto; background: white; line-height: 1.8; font-size: 18px; }
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
-        #timer { font-size: 24px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
-        #recordBtn { width: 60px; height: 60px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
+        :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
+        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+        .back-btn { background: none; border: none; color: var(--hkust-blue); font-size: 14px; cursor: pointer; text-decoration: none; }
+        
+        .toggle-btn { 
+            background: #f0f0f0; border: 1px solid #ddd; padding: 5px 12px; 
+            border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.3s;
+        }
+        .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
+
+        .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.3; font-size: 20px; color: #222; }
+        .text-title { font-size: 26px; font-weight: bold; margin-bottom: 25px; text-align: center; }
+        
+        /* 关键修改：保留分段换行 */
+        .text-content { 
+            white-space: pre-wrap; 
+            text-align: justify; 
+            word-break: break-all;
+            margin-bottom: 40px; 
+        }
+        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 2px; }
+
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px 20px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        #timer { font-size: 26px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
+        #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; transition: all 0.2s; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        #debug-info { color: red; font-size: 11px; margin-top: 5px; font-family: monospace; }
-        audio { width: 100%; margin-top: 10px; }
+        audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-    <div class="nav-bar">PSC 模拟测试 - 《春》</div>
+    <div class="nav-bar">
+        <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
+        <button id="toggleHint" class="toggle-btn">显示断句提示</button>
+    </div>
 
     <div class="reading-area">
-        盼望着，盼望着，东风来了，春天的脚步近了... (此处省略正文)
+        <div class="text-title">《春》</div>
+        <div id="textContent" class="text-content"></div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="debug-info"></div>
         <audio id="audioPlayback" controls></audio>
     </div>
 
 <script>
+    // 文本分段数据
+    const textData = {
+        normal: `盼望着，盼望着，东风来了，春天的脚步近了。
+
+一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。
+
+小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。
+
+“吹面不寒杨柳风”，不错的，像母亲的手抚摸着你。风里带来些新翻的泥土的气息，混着青草味儿，还有各种花的香，都在微微湿润的空气里酝酿。鸟儿将巢安在繁花绿叶当中，高兴起来了，呼朋引伴地卖弄清脆的喉咙，唱出宛转的曲子，跟轻风流水应和着。牛背上牧童的短笛，这时候也成天嘹亮地响着。
+
+雨是最寻常的，一下就是三两天。可别恼。看，像牛毛，像花针，像细丝，密密地斜织着，人家屋顶上全笼着一层薄烟。树叶儿却绿得发亮，小草儿也青得逼你的眼。傍晚时候，上灯了，一点点黄晕的光，烘托出一片安静而和平的夜。在乡下，小路上，石桥边，有撑起伞慢慢走着的人，地里还有工作的农民，披着蓑戴着笠。他们的房屋，稀稀疏疏的，在雨里静默着。
+
+天上风筝渐渐多了，地上孩子也多了。城里乡下，家家户户，老老小小，也赶趟儿似的，一个个都出来了。舒活舒活筋骨，抖擞抖擞精神，各做各的一份儿事去。“一年之计在于春”，刚起头儿，有的是工夫，有的是希望。
+
+春天像刚落地的娃娃，从头到脚都是新的，它生长着。
+
+春天像小姑娘，花枝招展的，笑着，走着。
+
+春天像健壮的青年，有铁一般的胳膊和腰脚，领着我们上前去。`,
+        hint: `盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//
+
+一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//
+
+小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//
+
+“吹面不寒杨柳风”，/ 不错的，/ 像母亲的手抚摸着你。// 风里带来些新翻的泥土的气息，/ 混着青草味儿，/ 还有各种花的香，/ 都在微微湿润的空气里酝酿。// 鸟儿将巢安在繁花绿叶当中，/ 高兴起来了，/ 呼朋引伴地卖弄清脆的喉咙，/ 唱出宛转的曲子，/ 跟轻风流水应和着。// 牛背上牧童的短笛，/ 这时候也成天嘹亮地响着。//
+
+雨/ 是最寻常的，/ 一下就是三两天。// 可别恼。// 看，/ 像牛毛，/ 像花针，/ 像细丝，/ 密密地斜织着，/ 人家屋顶上/ 全笼着一层薄烟。// 树叶儿却绿得发亮，/ 小草儿也青得逼你的眼。// 傍晚时候，/ 上灯了，/ 一点点黄晕的光，/ 烘托出一片安静而和平的夜。// 在乡下，/ 小路上，/ 石桥边，/ 有撑起伞慢慢走着的人，/ 地里还有工作的农民，/ 披着蓑/ 戴着笠。// 他们的房屋，/ 稀稀疏疏的，/ 在雨里静默着。//
+
+天上/ 风筝渐渐多了，/ 地上/ 孩子也多了。// 城里乡下，/ 家家户户，/ 老老小小，/ 也赶趟儿似的，/ 一个个都出来了。// 舒活舒活筋骨，/ 抖擞抖擞精神，/ 各做各的一份儿事去。// “一年之计在于春”，/ 刚起头儿，/ 有的是工夫，/ 有的是希望。//
+
+春天/ 像刚落地的娃娃，/ 从头到脚都是新的，/ 它生长着。//
+
+春天/ 像小姑娘，/ 花枝招展的，/ 笑着，/ 走着。//
+
+春天/ 像健壮的青年，/ 有铁一般的胳膊和腰脚，/ 领着我们上前去。//`
+    };
+
+    let showHint = false;
+    const contentDiv = document.getElementById('textContent');
+    const toggleBtn = document.getElementById('toggleHint');
+
+    function renderText() {
+        const rawText = showHint ? textData.hint : textData.normal;
+        contentDiv.innerHTML = rawText
+            .replace(/\/\//g, '<span class="pause-mark"> // </span>')
+            .replace(/\//g, '<span class="pause-mark"> / </span>');
+        toggleBtn.innerText = showHint ? "隐藏断句提示" : "显示断句提示";
+        toggleBtn.classList.toggle('active', showHint);
+    }
+
+    toggleBtn.onclick = () => { showHint = !showHint; renderText(); };
+    renderText();
+
+    // 录音逻辑
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
     const audioPlayback = document.getElementById('audioPlayback');
-    const debugInfo = document.getElementById('debug-info');
-    
-    let mediaRecorder;
-    let chunks = [];
-    let timerInterval;
+    let mediaRecorder, chunks = [], timerInterval;
 
-    // 核心：探测当前浏览器最稳的格式
-    function getBestMimeType() {
-        const types = [
-            'audio/mp4',           // Safari 首选
-            'audio/webm;codecs=opus', // Chrome/Firefox 首选
-            'audio/webm',
-            'audio/aac',
-            'audio/wav'
-        ];
-        for (const type of types) {
-            if (MediaRecorder.isTypeSupported(type)) {
-                console.log("Selected MIME type:", type);
-                return type;
-            }
-        }
+    function getMimeType() {
+        const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/wav'];
+        for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
         return '';
     }
 
     recordBtn.onclick = async () => {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
             try {
-                debugInfo.innerText = "";
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mimeType = getBestMimeType();
-                
-                // 强制指定编码
+                const mimeType = getMimeType();
                 mediaRecorder = new MediaRecorder(stream, { mimeType });
                 chunks = [];
-
                 mediaRecorder.onstart = () => {
-                    let seconds = 0;
+                    let sec = 0;
                     timerInterval = setInterval(() => {
-                        seconds++;
-                        timerDisplay.innerText = new Date(seconds * 1000).toISOString().substr(14, 5);
+                        sec++;
+                        timerDisplay.innerText = new Date(sec * 1000).toISOString().substr(14, 5);
                     }, 1000);
                 };
-
-                mediaRecorder.ondataavailable = e => {
-                    if (e.data.size > 0) chunks.push(e.data);
-                };
-
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
                 mediaRecorder.onstop = () => {
                     clearInterval(timerInterval);
-                    try {
-                        const blob = new Blob(chunks, { type: mimeType });
-                        const url = URL.createObjectURL(blob);
-                        audioPlayback.src = url;
-                        
-                        // 监听播放器的错误
-                        audioPlayback.onerror = (e) => {
-                            debugInfo.innerText = "播放器错误代码: " + audioPlayback.error.code + " (可能是格式不支持)";
-                        };
-                    } catch (err) {
-                        debugInfo.innerText = "Blob 生成失败: " + err.message;
-                    }
+                    const blob = new Blob(chunks, { type: mimeType });
+                    audioPlayback.src = URL.createObjectURL(blob);
                 };
-
-                mediaRecorder.start(200); // 每200ms保存一次切片，防止丢失
+                mediaRecorder.start(200);
                 recordBtn.innerText = "停止";
                 recordBtn.classList.add('recording');
-            } catch (err) {
-                debugInfo.innerText = "录音开启失败: " + err.message;
-            }
+            } catch (err) { alert("录音启动失败，请检查权限。"); }
         } else {
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(t => t.stop());
