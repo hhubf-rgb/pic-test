@@ -4,80 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; }
-        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* 导航栏 */
-        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        .back-btn { background: none; border: none; color: var(--hkust-blue); font-size: 16px; cursor: pointer; display: flex; align-items: center; text-decoration: none; }
-        .back-btn:before { content: "❮"; margin-right: 5px; }
-
-        /* 阅读区域 */
-        .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2; font-size: 19px; color: #222; }
-        .task-info { font-size: 14px; color: #888; margin-bottom: 10px; }
-        .text-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
-        .text-content { text-align: justify; letter-spacing: 1px; }
-
-        /* 控制台 */
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px 20px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-        #timer { font-size: 26px; font-weight: bold; margin-bottom: 10px; font-family: monospace; color: #333; }
-        #recordBtn { 
-            width: 64px; height: 64px; border-radius: 50%; border: none; 
-            background: var(--wechat-green); color: white; font-weight: bold;
-            cursor: pointer; outline: none; transition: all 0.2s;
-        }
+        :root { --wechat-green: #07C160; --wechat-red: #FA5151; }
+        body { font-family: sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .nav-bar { background: white; padding: 10px; border-bottom: 1px solid #ddd; text-align: center; font-weight: bold; }
+        .reading-area { flex: 1; padding: 20px; overflow-y: auto; background: white; line-height: 1.8; font-size: 18px; }
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
+        #timer { font-size: 24px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
+        #recordBtn { width: 60px; height: 60px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-        #status { font-size: 13px; color: #999; margin-top: 12px; }
-        audio { width: 100%; margin-top: 15px; }
+        #debug-info { color: red; font-size: 11px; margin-top: 5px; font-family: monospace; }
+        audio { width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="nav-bar">
-        <a href="javascript:history.back()" class="back-btn">返回</a>
-        <div style="flex:1; text-align:center; font-weight:bold; font-size:14px;">PSC 模拟朗读</div>
-    </div>
+    <div class="nav-bar">PSC 模拟测试 - 《春》</div>
 
     <div class="reading-area">
-        <div class="task-info">任务三：短文朗读（限时 4 分钟）</div>
-        <div class="text-title">《春》</div>
-        <div class="text-content">
-            盼望着，盼望着，东风来了，春天的脚步近了。<br>
-            一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。<br>
-            小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。<br>
-            ......<br>
-            “吹面不寒杨柳风”，不错的，像母亲的手抚摸着你。风里带来些新翻的泥土的气息，混着青草味儿，还有各种花的香，都在微微湿润的空气里酝酿。鸟儿将巢安在繁花绿叶当中，高兴起来了，呼朋引伴地卖弄清脆的喉咙，唱出宛转的曲子，跟轻风流水应和着。牛背上牧童的短笛，这时候也成天嘹亮地响着。<br>
-            雨是最寻常的，一下就是三两天。可别恼。看，像牛毛，像花针，像细丝，密密地斜织着，人家屋顶上全笼着一层薄烟。树叶儿却绿得发亮，小草儿也青得逼你的眼。傍晚时候，上灯了，一点点黄晕的光，烘托出一片安静而和平的夜。在乡下，小路上，石桥边，有撑起伞慢慢走着的人，地里还有工作的农民，披着蓑戴着笠。他们的房屋，稀稀疏疏的，在雨里静默着。<br>
-            天上风筝渐渐多了，地上孩子也多了。城里乡下，家家户户，老老小小，也赶趟儿似的，一个个都出来了。舒活舒活筋骨，抖擞抖擞精神，各做各的一份儿事去。“一年之计在于春”，刚起头儿，有的是工夫，有的是希望。<br>
-            春天像刚落地的娃娃，从头到脚都是新的，它生长着。<br>
-            春天像小姑娘，花枝招展的，笑着，走着。<br>
-            春天像健壮的青年，有铁一般的胳膊和腰脚，领着我们上前去。
-        </div>
+        盼望着，盼望着，东风来了，春天的脚步近了... (此处省略正文)
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="status">准备就绪</div>
+        <div id="debug-info"></div>
         <audio id="audioPlayback" controls></audio>
     </div>
 
 <script>
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
-    const statusText = document.getElementById('status');
     const audioPlayback = document.getElementById('audioPlayback');
+    const debugInfo = document.getElementById('debug-info');
     
     let mediaRecorder;
     let chunks = [];
     let timerInterval;
 
-    // 自动探测支持的 MIME 类型
-    function getSupportedMimeType() {
-        const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-        for (let type of types) {
-            if (MediaRecorder.isTypeSupported(type)) return type;
+    // 核心：探测当前浏览器最稳的格式
+    function getBestMimeType() {
+        const types = [
+            'audio/mp4',           // Safari 首选
+            'audio/webm;codecs=opus', // Chrome/Firefox 首选
+            'audio/webm',
+            'audio/aac',
+            'audio/wav'
+        ];
+        for (const type of types) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                console.log("Selected MIME type:", type);
+                return type;
+            }
         }
         return '';
     }
@@ -85,9 +63,11 @@
     recordBtn.onclick = async () => {
         if (!mediaRecorder || mediaRecorder.state === 'inactive') {
             try {
+                debugInfo.innerText = "";
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mimeType = getSupportedMimeType();
+                const mimeType = getBestMimeType();
                 
+                // 强制指定编码
                 mediaRecorder = new MediaRecorder(stream, { mimeType });
                 chunks = [];
 
@@ -95,32 +75,35 @@
                     let seconds = 0;
                     timerInterval = setInterval(() => {
                         seconds++;
-                        const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-                        const secs = (seconds % 60).toString().padStart(2, '0');
-                        timerDisplay.innerText = `${mins}:${secs}`;
+                        timerDisplay.innerText = new Date(seconds * 1000).toISOString().substr(14, 5);
                     }, 1000);
                 };
 
                 mediaRecorder.ondataavailable = e => {
-                    if (e.data && e.data.size > 0) chunks.push(e.data);
+                    if (e.data.size > 0) chunks.push(e.data);
                 };
 
                 mediaRecorder.onstop = () => {
                     clearInterval(timerInterval);
-                    // 核心修复：确保 Blob 生成正确
-                    const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
-                    const audioURL = window.URL.createObjectURL(blob);
-                    audioPlayback.src = audioURL;
-                    audioPlayback.load(); // 强制重新加载资源
-                    statusText.innerText = "录音完成，可回放";
+                    try {
+                        const blob = new Blob(chunks, { type: mimeType });
+                        const url = URL.createObjectURL(blob);
+                        audioPlayback.src = url;
+                        
+                        // 监听播放器的错误
+                        audioPlayback.onerror = (e) => {
+                            debugInfo.innerText = "播放器错误代码: " + audioPlayback.error.code + " (可能是格式不支持)";
+                        };
+                    } catch (err) {
+                        debugInfo.innerText = "Blob 生成失败: " + err.message;
+                    }
                 };
 
-                mediaRecorder.start(100); // 每100ms收集一次数据，防止丢失
+                mediaRecorder.start(200); // 每200ms保存一次切片，防止丢失
                 recordBtn.innerText = "停止";
                 recordBtn.classList.add('recording');
-                statusText.innerText = "正在录制...";
             } catch (err) {
-                statusText.innerText = "错误: " + err.message;
+                debugInfo.innerText = "录音开启失败: " + err.message;
             }
         } else {
             mediaRecorder.stop();
