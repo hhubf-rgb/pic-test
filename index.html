@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --wechat-green: #07C160;
+            --wechat-red: #FA5151;
+            --text-gray: #666;
+        }
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            background: transparent;
+            margin: 0;
+            padding: 10px;
+        }
+        /* 容器大小适中：180px */
+        .container {
+            text-align: center;
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            width: 180px; 
+        }
+        /* 按钮大小：54px，兼顾了美观与点击手感 */
+        #recordBtn {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--wechat-green);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            outline: none;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+        #recordBtn.recording {
+            background-color: var(--wechat-red);
+            transform: scale(1.05);
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(250, 81, 81, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(250, 81, 81, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(250, 81, 81, 0); }
+        }
+        #status {
+            font-size: 12px;
+            color: var(--text-gray);
+            margin-bottom: 8px;
+            height: 16px;
+        }
+        /* 播放器高度优化 */
+        audio {
+            width: 100%;
+            height: 35px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button id="recordBtn">开始</button>
+    <div id="status">准备就绪</div>
+    <audio id="audioPlayback" controls></audio>
+</div>
+
+<script>
+    let mediaRecorder;
+    let audioChunks = [];
+    const recordBtn = document.getElementById('recordBtn');
+    const statusText = document.getElementById('status');
+    const audioPlayback = document.getElementById('audioPlayback');
+
+    recordBtn.addEventListener('click', async () => {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    audioPlayback.src = URL.createObjectURL(audioBlob);
+                    audioPlayback.style.display = 'block';
+                    statusText.innerText = "录音已保存";
+                };
+                mediaRecorder.start();
+                recordBtn.innerText = "停止";
+                recordBtn.classList.add('recording');
+                statusText.innerText = "正在录制...";
+            } catch (err) {
+                statusText.innerText = "权限被拒绝";
+            }
+        } else {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            recordBtn.innerText = "重录";
+            recordBtn.classList.remove('recording');
+        }
+    });
+</script>
+</body>
+</html>
