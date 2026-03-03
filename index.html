@@ -158,104 +158,102 @@
     }
 
     // 将音频转换为 Base64 的 Promise 函数
+    // 增强版的 Base64 转换，加入了严谨的错误抛出
     function blobToBase64(blob) {
         return new Promise((resolve, reject) => {
+            if (!blob || blob.size === 0) {
+                reject(new Error("录音文件为空 (Size: 0)"));
+                return;
+            }
             const reader = new FileReader();
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
+            reader.onload = () => {
+                if (reader.result) {
+                    resolve(reader.result.split(',')[1]);
+                } else {
+                    reject(new Error("FileReader 读取结果为空"));
+                }
+            };
+            reader.onerror = () => reject(new Error("FileReader 内部读取失败"));
             reader.readAsDataURL(blob);
         });
     }
 
     async function callIfeISE(audioBlob) {
+        const scoreDiv = document.getElementById('totalScore');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "加载中...";
-        document.getElementById('feedback-msg').innerText = "正在准备数据...";
-        statusText.innerText = "🔄 正在处理音频数据...";
-        statusText.style.color = "var(--hkust-blue)";
+        scoreDiv.innerText = "诊断中...";
+        feedbackMsg.innerText = "正在执行核心逻辑，请留意是否有红字报错...";
+        statusText.innerText = "🔄 正在处理...";
 
         try {
-            // 步骤 1：同步等待音频转码完成，消灭竞态条件！
+            // 1. 尝试转换音频
             const base64Audio = await blobToBase64(audioBlob);
             
-            // 步骤 2：生成鉴权链接并立即连接
-            statusText.innerText = "🔄 正在连接讯飞 API...";
+            // 2. 尝试生成鉴权 URL (这里是最容易抛出异常的地方)
             const url = getAuthUrl();
-            console.log("鉴权URL: ", url);
+            
+            // 3. 尝试建立 WebSocket
             const ws = new WebSocket(url);
 
-            // 步骤 3：立即绑定事件
             ws.onopen = () => {
-                console.log("WebSocket 连接已打开");
-                statusText.innerText = "⬆️ 已连接，正在上传录音进行评测...";
-                document.getElementById('feedback-msg').innerText = "服务器已响应，正在分析语音特征...";
+                statusText.innerText = "⬆️ 已连接，发送数据中...";
+                feedbackMsg.innerText = "WebSocket 握手成功，正在等待讯飞返回评分...";
 
-                // 发送第一帧 (参数)
                 const params = {
                     common: { app_id: CONFIG.APPID },
                     business: {
-                        category: "read_chapter", // 长文本评测
+                        category: "read_chapter", 
                         rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
                         text: '\uFEFF' + springParagraphs.map(p => p.normal).join('')
                     },
                     data: { status: 0 }
                 };
                 ws.send(JSON.stringify(params));
-
-                // 发送第二帧 (音频)
                 ws.send(JSON.stringify({ business: { cmd: "auw", aus: 1 }, data: { status: 1, data: base64Audio } }));
-
-                // 发送第三帧 (结束)
                 ws.send(JSON.stringify({ business: { cmd: "auw", aus: 2 }, data: { status: 2 } }));
             };
 
             ws.onmessage = (e) => {
                 const res = JSON.parse(e.data);
-                console.log("收到服务器消息:", res);
-
                 if (res.code === 0 && res.data && res.data.result) {
-                    // 成功获取结果
                     const xmlStr = atob(res.data.result);
-                    console.log("最终评分 XML:", xmlStr);
-                    
                     const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
-                    document.getElementById('totalScore').innerText = scoreMatch ? scoreMatch[1] : "N/A";
-                    document.getElementById('feedback-msg').innerText = "✅ 评测成功！您可以点击下方播放器回听发音。";
+                    scoreDiv.innerText = scoreMatch ? scoreMatch[1] : "N/A";
+                    feedbackMsg.innerText = "✅ 评测成功！XML 数据已在 Console 打印。";
                     statusText.innerText = "✅ 评测完成";
                     statusText.style.color = "var(--wechat-green)";
+                    console.log("讯飞评分 XML:", xmlStr);
                     ws.close();
                 } else if (res.code !== 0) {
-                    // 业务逻辑报错
-                    document.getElementById('totalScore').innerText = "Error";
-                    document.getElementById('feedback-msg').innerText = `评测被拒：错误码 ${res.code} (${res.message})`;
+                    scoreDiv.innerText = "API 拒收";
+                    feedbackMsg.innerText = `讯飞业务报错：错误码 ${res.code} (${res.message})`;
                     statusText.innerText = "❌ 评测失败";
-                    statusText.style.color = "red";
                     ws.close();
                 }
             };
 
             ws.onerror = (err) => {
-                console.error("WebSocket 握手错误:", err);
-                document.getElementById('totalScore').innerText = "连接失败";
-                document.getElementById('feedback-msg').innerText = "网络阻断或签名验证失败。请按 F12 查看详细报错。";
-                statusText.innerText = "❌ 网络连接异常";
-                statusText.style.color = "red";
+                scoreDiv.innerText = "WS 错误";
+                feedbackMsg.innerText = "WebSocket 网络底层阻断，请检查网络或 HTTPS 证书。";
             };
 
             ws.onclose = (e) => {
-                console.log("WebSocket 已关闭", e.code, e.reason);
-                if (e.code !== 1000 && document.getElementById('totalScore').innerText === "加载中...") {
-                    document.getElementById('totalScore').innerText = "断开连接";
-                    document.getElementById('feedback-msg').innerText = `非正常断开 (Code: ${e.code}). 请检查 API Key 配置。`;
-                    statusText.innerText = "❌ 连接意外断开";
-                    statusText.style.color = "red";
+                if (e.code !== 1000 && scoreDiv.innerText === "诊断中...") {
+                    scoreDiv.innerText = "连接被掐断";
+                    feedbackMsg.innerText = `断开代码: ${e.code}。通常是因为鉴权失败或参数不合法。`;
                 }
             };
 
         } catch (err) {
-            console.error("音频读取异常:", err);
-            statusText.innerText = "❌ 音频处理失败";
+            // 🎯 这里是关键！把 JS 底层报错直接印在屏幕上
+            console.error("捕捉到致命错误:", err);
+            statusText.innerText = "❌ 内部代码异常";
             statusText.style.color = "red";
+            scoreDiv.innerText = "JS 抛错";
+            // 将真正的错误信息显示在浅蓝色反馈框里
+            feedbackMsg.innerHTML = `<span style="color:red; font-weight:bold;">报错原因: ${err.message}</span> <br> 请将此红字发给我！`;
         }
     }
 </script>
