@@ -3,24 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 - HKUST</title>
-    
+    <title>PSC 智能评测 </title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    
     <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
-    
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
         .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
-        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; }
         #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
         .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
-        .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify;}
-        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
+        .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify; font-weight: bold; color: #333;}
         .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
         #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
         #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
@@ -33,27 +27,25 @@
 
     <div class="nav-bar">
         <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
-        <button id="toggleHint" class="toggle-btn">显示断句提示</button>
+        <div style="font-size:14px; color:var(--hkust-blue); font-weight:bold;">最小可行性测试 (MVP)</div>
     </div>
 
     <div id="feedback-panel">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
-            <button onclick="document.getElementById('feedback-panel').style.display='none'" style="background:none; border:none; color:#888; cursor:pointer;">✖</button>
         </div>
         <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">等待数据...</div>
     </div>
 
     <div class="reading-area">
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》</div>
-        <div id="textContent"></div>
+        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》(节选)</div>
+        <div id="textContent" class="paragraph">盼望着，盼望着，东风来了，春天的脚步近了。</div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="status">点击开始朗读</div>
-        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
+        <div id="status">点击朗读上面的句子</div>
     </div>
 
 <script>
@@ -63,41 +55,18 @@
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    const springParagraphs = [
-        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
-        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
-        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//" }
-    ];
-
-    let showHint = false;
-    function renderText() {
-        const contentDiv = document.getElementById('textContent');
-        contentDiv.innerHTML = '';
-        springParagraphs.forEach(p => {
-            const div = document.createElement('div');
-            div.className = 'paragraph';
-            let text = showHint ? p.hint : p.normal;
-            text = text.replace(/\/\//g, '【双斜】').replace(/\//g, '【单斜】');
-            text = text.replace(/【双斜】/g, '<span class="pause-mark">//</span>').replace(/【单斜】/g, '<span class="pause-mark">/</span>');
-            div.innerHTML = text;
-            contentDiv.appendChild(div);
-        });
-        document.getElementById('toggleHint').classList.toggle('active', showHint);
-    }
-    document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
-    renderText();
-
     let rec;
     document.getElementById('recordBtn').onclick = () => {
         if (!rec || !rec.started) startRec(); else stopRec();
     };
 
     function startRec() {
-        // 🚀 使用最稳固的 wav 格式，确保录音一定能启动
+        // 🚀 核心修复 1：强制锁定 numChannels: 1 (单声道)，彻底杜绝白噪音解码失败！
         rec = Recorder({
             type: "wav", 
             sampleRate: 16000, 
             bitRate: 16, 
+            numChannels: 1, 
             onProcess: (buffers, powerLevel, duration) => {
                 document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
             }
@@ -109,8 +78,6 @@
             document.getElementById('recordBtn').classList.add('recording'); 
             document.getElementById('status').innerText = "🔴 录音中..."; 
             document.getElementById('feedback-panel').style.display = 'none';
-        }, (msg) => {
-            alert("无法访问麦克风: " + msg);
         });
     }
 
@@ -118,19 +85,15 @@
         rec.stop((blob, duration) => {
             rec.started = false;
             document.getElementById('recordBtn').classList.remove('recording');
-            
             if (duration < 1500) {
                 document.getElementById('status').innerText = "⚠️ 录音太短，请重试";
                 return;
             }
-
-            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
-            document.getElementById('audioPlayback').style.display = 'block';
             callIfeISE(blob);
         });
     }
 
-    // 🚀 核心一：稳健的 PCM 提取器（完美切除 WAV 头，解决 40007）
+    // 二进制探针 (保持不变，极其稳定)
     function extractPCM(arrayBuffer) {
         const view = new DataView(arrayBuffer);
         let offset = 12; 
@@ -160,21 +123,31 @@
         return window.btoa(binary);
     }
 
-    // 🚀 核心二：防弹级文本编码器（解决 48195）
+    // 完美文本编码器 (已锁定为单句话测试)
     function getBulletproofTextBase64() {
-        let rawText = springParagraphs.map(p => p.normal).join('');
-        // 极度苛刻的清洗，防止特殊字符炸毁引擎
-        let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！；：“”‘’]/g, ''); 
-        return window.btoa(unescape(encodeURIComponent('\uFEFF' + cleanText)));
+        const text = "盼望着，盼望着，东风来了，春天的脚步近了。";
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(text);
+        
+        // 精准注入 BOM 头
+        const combined = new Uint8Array(3 + textBytes.length);
+        combined[0] = 0xEF; combined[1] = 0xBB; combined[2] = 0xBF;
+        combined.set(textBytes, 3);
+
+        let binary = '';
+        for (let i = 0; i < combined.byteLength; i++) {
+            binary += String.fromCharCode(combined[i]);
+        }
+        return window.btoa(binary);
     }
 
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "拼命评测中...";
-        document.getElementById('status').innerText = "🔄 验证通过，上传纯净流...";
+        document.getElementById('totalScore').innerText = "评测中...";
+        document.getElementById('status').innerText = "🔄 发送高对齐度音频...";
 
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = extractPCM(buffer); // 调用探针提取纯净音频
+        const dataArray = extractPCM(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
@@ -197,10 +170,11 @@
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", // 长文模式
-                            aue: "raw",               // 声明音频为纯 PCM
+                            // 🚀 核心修复 2：严格降级为 read_sentence (单句模式)，让模型不至于越界崩溃！
+                            category: "read_sentence", 
+                            aue: "raw", 
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: getBulletproofTextBase64() // 万无一失的防弹文本
+                            text: getBulletproofTextBase64() 
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
@@ -219,9 +193,9 @@
                 const xml = atob(res.data.result);
                 const score = xml.match(/total_score="([^"]+)"/)[1];
                 document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 评测成功！请在控制台查看详细发音诊断。";
+                document.getElementById('feedback-msg').innerText = "✅ MVP 测试打通！快看控制台的详细 XML 报告！";
                 document.getElementById('status').innerText = "✅ 评测完成";
-                console.log("【最终 XML 得分报告】", xml);
+                console.log("【最终 XML 得分报告】\n", xml);
                 ws.close();
             } else if (res.code !== 0) {
                 document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
@@ -231,7 +205,7 @@
         };
 
         ws.onerror = () => {
-            document.getElementById('status').innerText = "❌ WebSocket 连接失败";
+            document.getElementById('status').innerText = "❌ WebSocket 物理断开";
         };
     }
 </script>
