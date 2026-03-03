@@ -151,12 +151,21 @@
         return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    // 💡 核心修复：将带有 BOM 头的中文进行 Base64 编码
+// 💡 核心修复：清理文本，只保留汉字和中文标点，剔除斜线等干扰项
     function getTextBase64() {
-        const rawText = '\uFEFF' + springParagraphs.map(p => p.normal).join('');
-        return window.btoa(unescape(encodeURIComponent(rawText)));
+        // 1. 获取所有段落的 normal 文本（即不带斜线的纯净版本）
+        let rawText = springParagraphs.map(p => p.normal).join('');
+        
+        // 2. 移除可能存在的任何斜杠（安全起见）
+        rawText = rawText.replace(/\//g, '').replace(/\\/g, '');
+        
+        // 3. 讯飞 ISE 要求：UTF-8 编码 + 带有 BOM 头 (\uFEFF)
+        const textWithBOM = '\uFEFF' + rawText;
+        
+        // 4. 将处理后的文本转为 Base64
+        // 使用 encodeURIComponent 处理非 ASCII 字符，确保 UTF-8 编码正确
+        return window.btoa(unescape(encodeURIComponent(textWithBOM)));
     }
-
     async function callIfeISE(audioBlob) {
         feedbackPanel.style.display = 'block';
         scoreDiv.innerText = "上传中";
