@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测</title>
+    <title>PSC Prep Hub - HKUST</title>
     <script src="https://cdn.bootcdn.net/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://unpkg.com/recorder-core/recorder.mp3.min.js"></script>
     <script src="https://unpkg.com/recorder-core/src/engine/wav.js"></script>
@@ -11,63 +11,73 @@
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
+        
+        /* 导航栏 */
+        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+        .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 14px; }
         .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
         .toggle-btn.active { background: var(--hkust-blue); color: white; }
 
-        /* 阅读区 */
-        .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
-        .paragraph { margin-bottom: 25px; text-align: justify; text-indent: 2em; }
+        /* 评测结果面板 */
+        #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 10px; padding: 15px; border-radius: 8px; display: none; }
+        .score-val { font-size: 24px; font-weight: bold; color: var(--hkust-blue); }
+
+        /* 阅读区域 */
+        .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; color: #222; }
+        .text-title { font-size: 26px; font-weight: bold; margin-bottom: 25px; text-align: center; }
+        .paragraph { margin-bottom: 20px; text-align: justify; text-indent: 2em; }
         .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
 
-        /* 评测反馈面板 */
-        #feedback-panel { background: #fffbe6; border: 1px solid #ffe58f; margin: 10px; padding: 10px; border-radius: 8px; display: none; font-size: 14px; }
-
         /* 控制台 */
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px; text-align: center; }
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         #timer { font-size: 26px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
-        #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
+        #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         #status { font-size: 13px; color: #999; margin-top: 10px; }
+        audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <div class="nav-bar">
-        <button onclick="location.reload()" style="border:none; background:none; color:var(--hkust-blue); font-weight:bold; cursor:pointer;">刷新题目</button>
+        <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
         <button id="toggleHint" class="toggle-btn">显示断句提示</button>
     </div>
 
-    <div class="reading-area">
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》</div>
-        <div id="textContent"></div>
+    <div id="feedback-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
+            <button onclick="this.parentElement.parentElement.style.display='none'" style="font-size:12px; cursor:pointer;">关闭</button>
+        </div>
+        <div id="feedback-msg" style="margin-top:8px; font-size:13px; color:#555;">正在获取详细反馈...</div>
     </div>
 
-    <div id="feedback-panel">
-        <strong>评测反馈：</strong> <span id="score-text">正在评分...</span>
-        <div id="detailed-feedback" style="margin-top:5px; color:#666; font-size:12px;"></div>
+    <div class="reading-area">
+        <div class="text-title">《春》</div>
+        <div id="textContent"></div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
         <div id="status">准备就绪</div>
-        <audio id="audioPlayback" controls style="width:100%; margin-top:10px; display:none;"></audio>
+        <audio id="audioPlayback" controls style="display:none;"></audio>
     </div>
 
 <script>
-    // --- 1. 讯飞配置 (请在此处填写) ---
+    // --- 1. 讯飞 API 配置 (请务必填写) ---
     const CONFIG = {
         APPID: "979154ce",
-        API_KEY: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5",
-        API_SECRET: "62051bfe38a7103fede0a6cb227fb3bb"
+        API_KEY: "62051bfe38a7103fede0a6cb227fb3bb",
+        API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    // --- 2. 文本与渲染逻辑 ---
+    // --- 2. 文本数据与段落展示 ---
     const springParagraphs = [
         { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，/ 春天的脚步近了。" },
-        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。" }
+        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。" },
+        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。/ 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。/ 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。/ 风/ 轻悄悄的，/ 草/ 软绵绵的。" }
     ];
 
     let showHint = false;
@@ -85,20 +95,21 @@
     document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
     renderText();
 
-    // --- 3. 录音逻辑 (使用 Recorder-Core 确保 16k WAV) ---
-    let rec, timerInterval;
+    // --- 3. 录音逻辑 (Recorder-Core 强制 16k WAV) ---
+    let rec;
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
+    const statusText = document.getElementById('status');
 
     recordBtn.onclick = () => {
         if (!rec || !rec.started) {
-            startRec();
+            startRecording();
         } else {
-            stopRec();
+            stopRecording();
         }
     };
 
-    function startRec() {
+    function startRecording() {
         rec = Recorder({
             type: "wav", sampleRate: 16000, bitRate: 16,
             onProcess: (buffers, powerLevel, bufferDuration) => {
@@ -110,26 +121,28 @@
             rec.start();
             rec.started = true;
             recordBtn.classList.add('recording');
-            document.getElementById('status').innerText = "正在录音，请清晰朗读内容...";
+            statusText.innerText = "录音中，请开始朗读《春》...";
+            document.getElementById('audioPlayback').style.display = 'none';
         });
     }
 
-    function stopRec() {
-        rec.stop((blob, duration) => {
+    function stopRecording() {
+        rec.stop((blob) => {
             rec.started = false;
             recordBtn.classList.remove('recording');
-            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
+            const audioUrl = URL.createObjectURL(blob);
+            document.getElementById('audioPlayback').src = audioUrl;
             document.getElementById('audioPlayback').style.display = 'block';
             
-            // 触发讯飞评测
-            sendToISE(blob);
-        }, (msg) => console.log("录音失败:" + msg));
+            // 核心：上传至讯飞 ISE 评测
+            callIfeISE(blob);
+        });
     }
 
-    // --- 4. 讯飞 ISE 鉴权与 WebSocket 逻辑 ---
+    // --- 4. 讯飞 ISE WebSocket 鉴权与通信 ---
     function getAuthUrl() {
         const host = "ise-api.xfyun.cn";
-        const date = new Date().toUTCString();
+        const date = new Date().toUTCString(); // 必须是 UTC 格式
         const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/ise HTTP/1.1`;
         const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
         const signature = CryptoJS.enc.Base64.stringify(signatureSha);
@@ -138,35 +151,39 @@
         return `wss://${host}/v2/ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    function sendToISE(audioBlob) {
+    function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('status').innerText = "AI 正在评测发音...";
-        
+        document.getElementById('totalScore').innerText = "计算中";
+        statusText.innerText = "正在通过 API 获取 AI 评测结果...";
+
         const url = getAuthUrl();
         const ws = new WebSocket(url);
         const reader = new FileReader();
 
         reader.onload = () => {
             const base64Audio = reader.result.split(',')[1];
+            
             ws.onopen = () => {
-                // 发送第一帧参数
-                ws.send(JSON.stringify({
+                console.log("WebSocket 连接成功");
+                // 第一帧：参数
+                const params = {
                     common: { app_id: CONFIG.APPID },
                     business: {
-                        category: "read_sentence", // PSC短文朗读模式
+                        category: "read_sentence", 
                         rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
-                        text: '\uFEFF' + springParagraphs.map(p=>p.normal).join('') // 待评测原文
+                        text: '\uFEFF' + springParagraphs.map(p => p.normal).join('') // 必须带上 BOM
                     },
                     data: { status: 0 }
-                }));
+                };
+                ws.send(JSON.stringify(params));
 
-                // 发送音频帧
+                // 第二帧：音频数据
                 ws.send(JSON.stringify({
                     business: { cmd: "auw", aus: 1 },
                     data: { status: 1, data: base64Audio }
                 }));
 
-                // 发送结束帧
+                // 第三帧：结束
                 ws.send(JSON.stringify({
                     business: { cmd: "auw", aus: 2 },
                     data: { status: 2 }
@@ -177,25 +194,32 @@
                 const res = JSON.parse(e.data);
                 if (res.code === 0 && res.data.result) {
                     const xmlStr = atob(res.data.result);
-                    parseResult(xmlStr);
+                    console.log("收到原始 XML 结果:", xmlStr);
+                    handleResult(xmlStr);
                     ws.close();
                 } else if (res.code !== 0) {
-                    document.getElementById('score-text').innerText = "评测出错: " + res.message;
+                    console.error("讯飞报错:", res.code, res.message);
+                    document.getElementById('totalScore').innerText = "Error";
+                    document.getElementById('feedback-msg').innerText = "错误码: " + res.code + " (" + res.message + ")";
                 }
+            };
+
+            ws.onerror = (err) => {
+                console.error("WS 连接错误", err);
+                statusText.innerText = "连接 API 失败，请检查网络或 Key。";
             };
         };
         reader.readAsDataURL(audioBlob);
     }
 
-    function parseResult(xml) {
-        // 简单提取总分 (实际可使用 DOMParser 解析 XML 细节)
-        const totalScoreMatch = xml.match(/total_score="([^"]+)"/);
-        const score = totalScoreMatch ? totalScoreMatch[1] : "无法读取分数";
+    function handleResult(xml) {
+        // 简单正则提取分数
+        const scoreMatch = xml.match(/total_score="([^"]+)"/);
+        const score = scoreMatch ? scoreMatch[1] : "N/A";
         
-        document.getElementById('score-text').innerText = score + " 分";
-        document.getElementById('detailed-feedback').innerText = "详细 XML 诊断数据已在控制台输出，可用于后续 GenAI 分析。";
-        document.getElementById('status').innerText = "评测完成";
-        console.log("讯飞 ISE 原始 XML:", xml);
+        document.getElementById('totalScore').innerText = score;
+        document.getElementById('feedback-msg').innerText = "评测成功！您可以点击下方播放器回听发音。";
+        statusText.innerText = "评测完成";
     }
 </script>
 </body>
