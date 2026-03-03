@@ -1,60 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 - HKUST</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/recorder.mp3.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/src/engine/wav.js"></script>
-    <style>
-        :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
-        body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
-        .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
-        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; }
-        #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
-        .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
-        .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
-        .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify;}
-        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
-        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
-        #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-    <div class="nav-bar">
-        <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
-        <button id="toggleHint" class="toggle-btn">显示断句提示</button>
-    </div>
-
-    <div id="feedback-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
-            <button onclick="document.getElementById('feedback-panel').style.display='none'" style="background:none; border:none; color:#888; cursor:pointer;">✖</button>
-        </div>
-        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">等待数据...</div>
-    </div>
-
-    <div class="reading-area">
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》</div>
-        <div id="textContent"></div>
-    </div>
-
-    <div class="control-panel">
-        <div id="timer">00:00</div>
-        <button id="recordBtn">录音</button>
-        <div id="status">点击开始朗读</div>
-        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
-    </div>
-
-<script>
-    const CONFIG = {
+const CONFIG = {
         APPID: "979154ce", 
         API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
@@ -90,7 +34,8 @@
     };
 
     function startRec() {
-        rec = Recorder({type:"wav", sampleRate:16000, bitRate:16, onProcess:(buffers, powerLevel, duration) => {
+        // 🚀 核心修复 1：录音格式强制切换为 mp3
+        rec = Recorder({type:"mp3", sampleRate:16000, bitRate:16, onProcess:(buffers, powerLevel, duration) => {
             document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
         }});
         rec.open(() => { 
@@ -120,16 +65,24 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-async function callIfeISE(audioBlob) {
+    // 优化的 Base64 转换函数，防止栈溢出
+    function bufferToBase64(buffer) {
+        let binary = '';
+        let bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+
+    async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 评测流上传中...";
+        document.getElementById('status').innerText = "🔄 正在发送 MP3 语音流...";
 
+        // 🚀 核心修复 2：直接拿整个 MP3 发送，再也不用手动切什么 44 字节了！
         const buffer = await audioBlob.arrayBuffer();
-        const fullArray = new Uint8Array(buffer);
-        
-        // 🚀 核心修复：直接切掉 WAV 文件的 44 字节头部，提取纯 PCM 原始数据！
-        const dataArray = fullArray.slice(44); 
+        const dataArray = new Uint8Array(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
@@ -146,7 +99,7 @@ async function callIfeISE(audioBlob) {
                 
                 let end = Math.min(offset + chunkSize, dataArray.length);
                 let chunk = dataArray.slice(offset, end);
-                let base64Chunk = btoa(Array.from(chunk).map(b => String.fromCharCode(b)).join(''));
+                let base64Chunk = bufferToBase64(chunk);
                 
                 if (offset === 0) {
                     let rawText = springParagraphs.map(p => p.normal).join('');
@@ -155,7 +108,8 @@ async function callIfeISE(audioBlob) {
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", // 恢复使用长文模式
+                            category: "read_chapter",
+                            aue: "lame", // 🚀 核心修复 3：明确告诉讯飞，我发的是 MP3！
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
                             text: '\uFEFF' + cleanText
                         },
@@ -188,5 +142,3 @@ async function callIfeISE(audioBlob) {
         };
     }
 </script>
-</body>
-</html>
