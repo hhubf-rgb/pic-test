@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSC 智能评测 - HKUST</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/recorder.mp3.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/src/engine/wav.js"></script>
+    <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -118,19 +117,19 @@
         });
     }
 
-    // 💡 成功的钥匙一：精准提取纯 PCM 音频
+    // --- 密钥 1：音频剥离探针 (完美保留) ---
     function extractPCM(arrayBuffer) {
         const view = new DataView(arrayBuffer);
-        let offset = 12; // 跳过 'RIFF', 文件大小, 'WAVE'
+        let offset = 12; 
         while (offset < view.byteLength) {
             const chunkId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset+1), view.getUint8(offset+2), view.getUint8(offset+3));
             const chunkSize = view.getUint32(offset + 4, true);
             if (chunkId === 'data') {
-                return new Uint8Array(arrayBuffer, offset + 8, chunkSize); // 完美切除一切多余头部！
+                return new Uint8Array(arrayBuffer, offset + 8, chunkSize);
             }
             offset += 8 + chunkSize;
         }
-        return new Uint8Array(arrayBuffer).slice(44); // 兜底方案
+        return new Uint8Array(arrayBuffer).slice(44); 
     }
 
     function getAuthUrl() {
@@ -148,13 +147,34 @@
         return window.btoa(binary);
     }
 
+    // --- 密钥 2：完美的 Base64 文本生成器 ---
+    function getCleanTextBase64() {
+        let rawText = springParagraphs.map(p => p.normal).join('');
+        // 只剔除空格、换行、斜杠，保留正常的汉字和标点，防止被错删
+        let cleanText = rawText.replace(/[\s\/\\]/g, ''); 
+
+        const encoder = new TextEncoder();
+        const textBytes = encoder.encode(cleanText);
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // 注入 BOM
+        
+        const combined = new Uint8Array(bom.length + textBytes.length);
+        combined.set(bom);
+        combined.set(textBytes, bom.length);
+
+        let binary = '';
+        for (let i = 0; i < combined.byteLength; i++) {
+            binary += String.fromCharCode(combined[i]);
+        }
+        return window.btoa(binary); // 严格的 Base64 文本
+    }
+
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
         document.getElementById('status').innerText = "🔄 验证通过，上传音频流...";
 
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = extractPCM(buffer); // 调用探针提取纯音频
+        const dataArray = extractPCM(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
@@ -174,17 +194,13 @@
                 let base64Chunk = bufferToBase64(chunk);
                 
                 if (offset === 0) {
-                    // 💡 成功的钥匙二：文本核能清洗 + 直接拼接 BOM 头（绝不 Base64！）
-                    let rawText = springParagraphs.map(p => p.normal).join('');
-                    let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！“”；：]/g, '');
-
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter",
+                            category: "read_chapter", // 匹配咱们大段文本的模式
                             aue: "raw", 
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: '\uFEFF' + cleanText // 讯飞只需要原汁原味带印章的中文字符串
+                            text: getCleanTextBase64() // 完美的 Base64 文本
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
