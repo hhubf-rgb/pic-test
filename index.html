@@ -12,30 +12,25 @@
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* 导航栏 */
         .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; flex-shrink: 0; }
         .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 14px; }
         .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
         .toggle-btn.active { background: var(--hkust-blue); color: white; }
 
-        /* 评测结果面板 */
         #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 10px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 24px; font-weight: bold; color: var(--hkust-blue); }
 
-        /* 阅读区域 */
         .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; color: #222; }
         .text-title { font-size: 26px; font-weight: bold; margin-bottom: 25px; text-align: center; }
         .paragraph { margin-bottom: 20px; text-align: justify; text-indent: 2em; }
         .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
 
-        /* 控制台 */
         .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
         #timer { font-size: 26px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
         #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         #status { font-size: 13px; color: #999; margin-top: 10px; }
-        audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -62,22 +57,22 @@
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
         <div id="status">准备就绪</div>
-        <audio id="audioPlayback" controls style="display:none;"></audio>
+        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
     </div>
 
 <script>
-    // --- 1. 讯飞 API 配置 (请务必填写) ---
+    // === 1. API 配置 ===
     const CONFIG = {
-        APPID: "979154ce",
-        API_KEY: "62051bfe38a7103fede0a6cb227fb3bb",
+        APPID: "979154ce", 
+        API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    // --- 2. 文本数据与段落展示 ---
+    // === 2. 安全的文本渲染引擎 ===
     const springParagraphs = [
-        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，/ 春天的脚步近了。" },
-        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。" },
-        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。/ 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。/ 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。/ 风/ 轻悄悄的，/ 草/ 软绵绵的。" }
+        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
+        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
+        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//" }
     ];
 
     let showHint = false;
@@ -87,7 +82,14 @@
         springParagraphs.forEach(p => {
             const div = document.createElement('div');
             div.className = 'paragraph';
-            div.innerHTML = (showHint ? p.hint : p.normal).replace(/\//g, '<span class="pause-mark">/</span>');
+            let text = showHint ? p.hint : p.normal;
+            
+            // 安全的占位符替换法，彻底杜绝 HTML 标签被破坏
+            text = text.replace(/\/\//g, '【双斜】').replace(/\//g, '【单斜】');
+            text = text.replace(/【双斜】/g, '<span class="pause-mark">//</span>')
+                       .replace(/【单斜】/g, '<span class="pause-mark">/</span>');
+            
+            div.innerHTML = text;
             contentDiv.appendChild(div);
         });
         document.getElementById('toggleHint').classList.toggle('active', showHint);
@@ -95,19 +97,13 @@
     document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
     renderText();
 
-    // --- 3. 录音逻辑 (Recorder-Core 强制 16k WAV) ---
+    // === 3. 录音引擎与错误捕捉 ===
     let rec;
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
     const statusText = document.getElementById('status');
 
-    recordBtn.onclick = () => {
-        if (!rec || !rec.started) {
-            startRecording();
-        } else {
-            stopRecording();
-        }
-    };
+    recordBtn.onclick = () => { if (!rec || !rec.started) startRecording(); else stopRecording(); };
 
     function startRecording() {
         rec = Recorder({
@@ -117,109 +113,114 @@
                 timerDisplay.innerText = new Date(sec * 1000).toISOString().substr(14, 5);
             }
         });
+        
+        // 关键修复：加入权限被拒的回调
         rec.open(() => {
             rec.start();
             rec.started = true;
             recordBtn.classList.add('recording');
             statusText.innerText = "录音中，请开始朗读《春》...";
             document.getElementById('audioPlayback').style.display = 'none';
+        }, (msg) => {
+            statusText.innerText = "❌ 麦克风访问被拒绝";
+            alert("请在 Safari 菜单栏点击【Safari 浏览器 -> 设置 -> 网站 -> 麦克风】，将本站设为'允许'！\n详细报错：" + msg);
         });
     }
 
     function stopRecording() {
-        rec.stop((blob) => {
+        rec.stop((blob, duration) => {
             rec.started = false;
             recordBtn.classList.remove('recording');
-            const audioUrl = URL.createObjectURL(blob);
-            document.getElementById('audioPlayback').src = audioUrl;
-            document.getElementById('audioPlayback').style.display = 'block';
             
-            // 核心：上传至讯飞 ISE 评测
+            // 防止 Safari 生成 0 字节无效音频
+            if(duration < 1000) {
+                alert("录音太短或无效，请重新录制！");
+                statusText.innerText = "录音无效";
+                return;
+            }
+
+            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
+            document.getElementById('audioPlayback').style.display = 'block';
             callIfeISE(blob);
+        }, (msg) => {
+            statusText.innerText = "录音失败: " + msg;
         });
     }
 
-    // --- 4. 讯飞 ISE WebSocket 鉴权与通信 ---
+    // === 4. 讯飞评测 (修复了路由和握手问题) ===
     function getAuthUrl() {
         const host = "ise-api.xfyun.cn";
-        const date = new Date().toUTCString(); // 必须是 UTC 格式
-        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/ise HTTP/1.1`;
+        const date = new Date().toUTCString();
+        // 关键修复：路由必须是 /v2/open-ise
+        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
         const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
         const signature = CryptoJS.enc.Base64.stringify(signatureSha);
         const authorizationOrigin = `api_key="${CONFIG.API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
         const authorization = btoa(authorizationOrigin);
-        return `wss://${host}/v2/ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
+        return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
     function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "计算中";
-        statusText.innerText = "正在通过 API 获取 AI 评测结果...";
+        document.getElementById('totalScore').innerText = "计算中...";
+        statusText.innerText = "正在连接讯飞 API...";
 
         const url = getAuthUrl();
         const ws = new WebSocket(url);
         const reader = new FileReader();
 
+        // 增加了完整的错误捕捉
+        ws.onerror = (err) => {
+            console.error("WS 错误", err);
+            document.getElementById('totalScore').innerText = "连接失败";
+            document.getElementById('feedback-msg').innerText = "API 握手失败，请按 F12 检查控制台（通常是 Key 填错或网络拦截）。";
+            statusText.innerText = "❌ 无法连接到评测服务器";
+        };
+
+        ws.onclose = (e) => {
+            if(e.code !== 1000 && e.code !== 1005) {
+                document.getElementById('feedback-msg').innerText = `连接异常断开 (错误码: ${e.code})`;
+            }
+        };
+
         reader.onload = () => {
             const base64Audio = reader.result.split(',')[1];
-            
             ws.onopen = () => {
-                console.log("WebSocket 连接成功");
-                // 第一帧：参数
+                statusText.innerText = "已连接，正在上传录音...";
+                
+                // 关键修复：长文本必须使用 read_chapter
                 const params = {
                     common: { app_id: CONFIG.APPID },
                     business: {
-                        category: "read_sentence", 
+                        category: "read_chapter", 
                         rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
-                        text: '\uFEFF' + springParagraphs.map(p => p.normal).join('') // 必须带上 BOM
+                        text: '\uFEFF' + springParagraphs.map(p => p.normal).join('')
                     },
                     data: { status: 0 }
                 };
                 ws.send(JSON.stringify(params));
-
-                // 第二帧：音频数据
-                ws.send(JSON.stringify({
-                    business: { cmd: "auw", aus: 1 },
-                    data: { status: 1, data: base64Audio }
-                }));
-
-                // 第三帧：结束
-                ws.send(JSON.stringify({
-                    business: { cmd: "auw", aus: 2 },
-                    data: { status: 2 }
-                }));
+                ws.send(JSON.stringify({ business: { cmd: "auw", aus: 1 }, data: { status: 1, data: base64Audio } }));
+                ws.send(JSON.stringify({ business: { cmd: "auw", aus: 2 }, data: { status: 2 } }));
             };
 
             ws.onmessage = (e) => {
                 const res = JSON.parse(e.data);
                 if (res.code === 0 && res.data.result) {
                     const xmlStr = atob(res.data.result);
-                    console.log("收到原始 XML 结果:", xmlStr);
-                    handleResult(xmlStr);
+                    const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
+                    document.getElementById('totalScore').innerText = scoreMatch ? scoreMatch[1] : "N/A";
+                    document.getElementById('feedback-msg').innerText = "评测成功！XML 详情已打印在控制台。";
+                    statusText.innerText = "✅ 评测完成";
+                    console.log("详细评测 XML:", xmlStr);
                     ws.close();
                 } else if (res.code !== 0) {
-                    console.error("讯飞报错:", res.code, res.message);
                     document.getElementById('totalScore').innerText = "Error";
-                    document.getElementById('feedback-msg').innerText = "错误码: " + res.code + " (" + res.message + ")";
+                    document.getElementById('feedback-msg').innerText = "讯飞报错码: " + res.code + " (" + res.message + ")";
+                    ws.close();
                 }
-            };
-
-            ws.onerror = (err) => {
-                console.error("WS 连接错误", err);
-                statusText.innerText = "连接 API 失败，请检查网络或 Key。";
             };
         };
         reader.readAsDataURL(audioBlob);
-    }
-
-    function handleResult(xml) {
-        // 简单正则提取分数
-        const scoreMatch = xml.match(/total_score="([^"]+)"/);
-        const score = scoreMatch ? scoreMatch[1] : "N/A";
-        
-        document.getElementById('totalScore').innerText = score;
-        document.getElementById('feedback-msg').innerText = "评测成功！您可以点击下方播放器回听发音。";
-        statusText.innerText = "评测完成";
     }
 </script>
 </body>
