@@ -30,7 +30,7 @@
         #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        #status { font-size: 13px; color: #999; margin-top: 10px; }
+        #status { font-size: 13px; color: #999; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -61,14 +61,14 @@
     </div>
 
 <script>
-    // === 1. API 配置 ===
+    // === 1. API 配置 (请务必填写) ===
     const CONFIG = {
         APPID: "979154ce", 
         API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    // === 2. 安全的文本渲染引擎 ===
+    // === 2. 文本渲染 ===
     const springParagraphs = [
         { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
         { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
@@ -83,12 +83,9 @@
             const div = document.createElement('div');
             div.className = 'paragraph';
             let text = showHint ? p.hint : p.normal;
-            
-            // 安全的占位符替换法，彻底杜绝 HTML 标签被破坏
             text = text.replace(/\/\//g, '【双斜】').replace(/\//g, '【单斜】');
             text = text.replace(/【双斜】/g, '<span class="pause-mark">//</span>')
                        .replace(/【单斜】/g, '<span class="pause-mark">/</span>');
-            
             div.innerHTML = text;
             contentDiv.appendChild(div);
         });
@@ -97,7 +94,7 @@
     document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
     renderText();
 
-    // === 3. 录音引擎与错误捕捉 ===
+    // === 3. 录音控制 ===
     let rec;
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
@@ -114,16 +111,16 @@
             }
         });
         
-        // 关键修复：加入权限被拒的回调
         rec.open(() => {
             rec.start();
             rec.started = true;
             recordBtn.classList.add('recording');
-            statusText.innerText = "录音中，请开始朗读《春》...";
+            statusText.innerText = "🔴 录音中，请开始朗读《春》...";
+            statusText.style.color = "var(--wechat-red)";
             document.getElementById('audioPlayback').style.display = 'none';
         }, (msg) => {
-            statusText.innerText = "❌ 麦克风访问被拒绝";
-            alert("请在 Safari 菜单栏点击【Safari 浏览器 -> 设置 -> 网站 -> 麦克风】，将本站设为'允许'！\n详细报错：" + msg);
+            statusText.innerText = "❌ 麦克风访问被拒绝: " + msg;
+            statusText.style.color = "red";
         });
     }
 
@@ -132,26 +129,26 @@
             rec.started = false;
             recordBtn.classList.remove('recording');
             
-            // 防止 Safari 生成 0 字节无效音频
             if(duration < 1000) {
-                alert("录音太短或无效，请重新录制！");
-                statusText.innerText = "录音无效";
+                statusText.innerText = "录音太短，请重试";
+                statusText.style.color = "#999";
                 return;
             }
 
             document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
             document.getElementById('audioPlayback').style.display = 'block';
-            callIfeISE(blob);
+            
+            callIfeISE(blob); // 触发评测
         }, (msg) => {
-            statusText.innerText = "录音失败: " + msg;
+            statusText.innerText = "❌ 录音失败: " + msg;
         });
     }
 
-    // === 4. 讯飞评测 (修复了路由和握手问题) ===
+    // === 4. 讯飞 ISE 评测 (彻底重构鉴权与通信流) ===
     function getAuthUrl() {
         const host = "ise-api.xfyun.cn";
         const date = new Date().toUTCString();
-        // 关键修复：路由必须是 /v2/open-ise
+        // 使用最新的 API 路由
         const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
         const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
         const signature = CryptoJS.enc.Base64.stringify(signatureSha);
@@ -160,67 +157,106 @@
         return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    function callIfeISE(audioBlob) {
+    // 将音频转换为 Base64 的 Promise 函数
+    function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "计算中...";
-        statusText.innerText = "正在连接讯飞 API...";
+        document.getElementById('totalScore').innerText = "加载中...";
+        document.getElementById('feedback-msg').innerText = "正在准备数据...";
+        statusText.innerText = "🔄 正在处理音频数据...";
+        statusText.style.color = "var(--hkust-blue)";
 
-        const url = getAuthUrl();
-        const ws = new WebSocket(url);
-        const reader = new FileReader();
+        try {
+            // 步骤 1：同步等待音频转码完成，消灭竞态条件！
+            const base64Audio = await blobToBase64(audioBlob);
+            
+            // 步骤 2：生成鉴权链接并立即连接
+            statusText.innerText = "🔄 正在连接讯飞 API...";
+            const url = getAuthUrl();
+            console.log("鉴权URL: ", url);
+            const ws = new WebSocket(url);
 
-        // 增加了完整的错误捕捉
-        ws.onerror = (err) => {
-            console.error("WS 错误", err);
-            document.getElementById('totalScore').innerText = "连接失败";
-            document.getElementById('feedback-msg').innerText = "API 握手失败，请按 F12 检查控制台（通常是 Key 填错或网络拦截）。";
-            statusText.innerText = "❌ 无法连接到评测服务器";
-        };
-
-        ws.onclose = (e) => {
-            if(e.code !== 1000 && e.code !== 1005) {
-                document.getElementById('feedback-msg').innerText = `连接异常断开 (错误码: ${e.code})`;
-            }
-        };
-
-        reader.onload = () => {
-            const base64Audio = reader.result.split(',')[1];
+            // 步骤 3：立即绑定事件
             ws.onopen = () => {
-                statusText.innerText = "已连接，正在上传录音...";
-                
-                // 关键修复：长文本必须使用 read_chapter
+                console.log("WebSocket 连接已打开");
+                statusText.innerText = "⬆️ 已连接，正在上传录音进行评测...";
+                document.getElementById('feedback-msg').innerText = "服务器已响应，正在分析语音特征...";
+
+                // 发送第一帧 (参数)
                 const params = {
                     common: { app_id: CONFIG.APPID },
                     business: {
-                        category: "read_chapter", 
+                        category: "read_chapter", // 长文本评测
                         rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
                         text: '\uFEFF' + springParagraphs.map(p => p.normal).join('')
                     },
                     data: { status: 0 }
                 };
                 ws.send(JSON.stringify(params));
+
+                // 发送第二帧 (音频)
                 ws.send(JSON.stringify({ business: { cmd: "auw", aus: 1 }, data: { status: 1, data: base64Audio } }));
+
+                // 发送第三帧 (结束)
                 ws.send(JSON.stringify({ business: { cmd: "auw", aus: 2 }, data: { status: 2 } }));
             };
 
             ws.onmessage = (e) => {
                 const res = JSON.parse(e.data);
-                if (res.code === 0 && res.data.result) {
+                console.log("收到服务器消息:", res);
+
+                if (res.code === 0 && res.data && res.data.result) {
+                    // 成功获取结果
                     const xmlStr = atob(res.data.result);
+                    console.log("最终评分 XML:", xmlStr);
+                    
                     const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
                     document.getElementById('totalScore').innerText = scoreMatch ? scoreMatch[1] : "N/A";
-                    document.getElementById('feedback-msg').innerText = "评测成功！XML 详情已打印在控制台。";
+                    document.getElementById('feedback-msg').innerText = "✅ 评测成功！您可以点击下方播放器回听发音。";
                     statusText.innerText = "✅ 评测完成";
-                    console.log("详细评测 XML:", xmlStr);
+                    statusText.style.color = "var(--wechat-green)";
                     ws.close();
                 } else if (res.code !== 0) {
+                    // 业务逻辑报错
                     document.getElementById('totalScore').innerText = "Error";
-                    document.getElementById('feedback-msg').innerText = "讯飞报错码: " + res.code + " (" + res.message + ")";
+                    document.getElementById('feedback-msg').innerText = `评测被拒：错误码 ${res.code} (${res.message})`;
+                    statusText.innerText = "❌ 评测失败";
+                    statusText.style.color = "red";
                     ws.close();
                 }
             };
-        };
-        reader.readAsDataURL(audioBlob);
+
+            ws.onerror = (err) => {
+                console.error("WebSocket 握手错误:", err);
+                document.getElementById('totalScore').innerText = "连接失败";
+                document.getElementById('feedback-msg').innerText = "网络阻断或签名验证失败。请按 F12 查看详细报错。";
+                statusText.innerText = "❌ 网络连接异常";
+                statusText.style.color = "red";
+            };
+
+            ws.onclose = (e) => {
+                console.log("WebSocket 已关闭", e.code, e.reason);
+                if (e.code !== 1000 && document.getElementById('totalScore').innerText === "加载中...") {
+                    document.getElementById('totalScore').innerText = "断开连接";
+                    document.getElementById('feedback-msg').innerText = `非正常断开 (Code: ${e.code}). 请检查 API Key 配置。`;
+                    statusText.innerText = "❌ 连接意外断开";
+                    statusText.style.color = "red";
+                }
+            };
+
+        } catch (err) {
+            console.error("音频读取异常:", err);
+            statusText.innerText = "❌ 音频处理失败";
+            statusText.style.color = "red";
+        }
     }
 </script>
 </body>
