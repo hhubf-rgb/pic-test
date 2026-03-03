@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 - HKUST</title>
+    <title>PSC 智能评测 </title>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
+    
+    <script src="https://unpkg.com/recorder-core/recorder.core.min.js"></script>
+    <script src="https://unpkg.com/recorder-core/src/engine/pcm.js"></script>
+    
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -19,6 +23,7 @@
         .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify;}
         .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
         .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
+        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
         #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
@@ -49,7 +54,6 @@
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
         <div id="status">点击开始朗读</div>
-        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
     </div>
 
 <script>
@@ -89,15 +93,24 @@
     };
 
     function startRec() {
-        rec = Recorder({type:"wav", sampleRate:16000, bitRate:16, onProcess:(buffers, powerLevel, duration) => {
-            document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
-        }});
+        // 🚀 核心替换：直接使用 PCM 格式。这样吐出来的音频数据连文件头都没有，纯纯的声音数据。
+        rec = Recorder({
+            type: "pcm", 
+            sampleRate: 16000, 
+            bitRate: 16, 
+            onProcess: (buffers, powerLevel, duration) => {
+                document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
+            }
+        });
+        
         rec.open(() => { 
             rec.start(); 
             rec.started = true; 
             document.getElementById('recordBtn').classList.add('recording'); 
-            document.getElementById('status').innerText = "🔴 录音中..."; 
+            document.getElementById('status').innerText = "🔴 录音中 (PCM 原生流)..."; 
             document.getElementById('feedback-panel').style.display = 'none';
+        }, (msg) => {
+            alert("无法访问麦克风: " + msg);
         });
     }
 
@@ -110,26 +123,9 @@
                 document.getElementById('status').innerText = "⚠️ 录音太短，请重试";
                 return;
             }
-
-            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
-            document.getElementById('audioPlayback').style.display = 'block';
+            // 因为现在是 PCM 格式，无法直接在浏览器原生 audio 标签播放，所以隐藏了播放器
             callIfeISE(blob);
         });
-    }
-
-    // --- 密钥 1：音频剥离探针 (完美保留) ---
-    function extractPCM(arrayBuffer) {
-        const view = new DataView(arrayBuffer);
-        let offset = 12; 
-        while (offset < view.byteLength) {
-            const chunkId = String.fromCharCode(view.getUint8(offset), view.getUint8(offset+1), view.getUint8(offset+2), view.getUint8(offset+3));
-            const chunkSize = view.getUint32(offset + 4, true);
-            if (chunkId === 'data') {
-                return new Uint8Array(arrayBuffer, offset + 8, chunkSize);
-            }
-            offset += 8 + chunkSize;
-        }
-        return new Uint8Array(arrayBuffer).slice(44); 
     }
 
     function getAuthUrl() {
@@ -147,34 +143,21 @@
         return window.btoa(binary);
     }
 
-    // --- 密钥 2：完美的 Base64 文本生成器 ---
-    function getCleanTextBase64() {
+    function getBulletproofTextBase64() {
         let rawText = springParagraphs.map(p => p.normal).join('');
-        // 只剔除空格、换行、斜杠，保留正常的汉字和标点，防止被错删
-        let cleanText = rawText.replace(/[\s\/\\]/g, ''); 
-
-        const encoder = new TextEncoder();
-        const textBytes = encoder.encode(cleanText);
-        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // 注入 BOM
-        
-        const combined = new Uint8Array(bom.length + textBytes.length);
-        combined.set(bom);
-        combined.set(textBytes, bom.length);
-
-        let binary = '';
-        for (let i = 0; i < combined.byteLength; i++) {
-            binary += String.fromCharCode(combined[i]);
-        }
-        return window.btoa(binary); // 严格的 Base64 文本
+        // 极其苛刻的正则：只保留汉字和全角逗点句号，掐死所有不可见字符引发的 48195 异常
+        let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！；：“”‘’]/g, ''); 
+        return window.btoa(unescape(encodeURIComponent('\uFEFF' + cleanText)));
     }
 
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 验证通过，上传音频流...";
+        document.getElementById('totalScore').innerText = "拼命评测中...";
+        document.getElementById('status').innerText = "🔄 验证通过，上传纯净 PCM 裸流...";
 
+        // 因为录音器 type 设置为了 pcm，这里的 buffer 已经是 100% 纯度的声音数据，不需要任何提取逻辑
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = extractPCM(buffer); 
+        const dataArray = new Uint8Array(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
@@ -185,6 +168,7 @@
                 if (ws.readyState !== 1) return;
                 
                 if (offset >= dataArray.length) {
+                    // 标准结束帧
                     ws.send(JSON.stringify({business:{cmd:"auw", aus:2}, data:{status:2, data:""}}));
                     return;
                 }
@@ -197,10 +181,10 @@
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", // 匹配咱们大段文本的模式
-                            aue: "raw", 
+                            category: "read_chapter", // 短文朗读模式
+                            aue: "raw",               // 声明音频为纯原生裸流
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: getCleanTextBase64() // 完美的 Base64 文本
+                            text: getBulletproofTextBase64() // 万无一失的文本格式
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
@@ -208,7 +192,7 @@
                     ws.send(JSON.stringify({business: {cmd: "auw", aus: 1}, data: {status: 1, data: base64Chunk}}));
                 }
                 offset = end;
-                setTimeout(sendNext, 40);
+                setTimeout(sendNext, 40); // 严格遵守 40ms 发送间隔
             };
             sendNext();
         };
@@ -219,15 +203,19 @@
                 const xml = atob(res.data.result);
                 const score = xml.match(/total_score="([^"]+)"/)[1];
                 document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 评测成功！XML 报告已输出至 F12 控制台。";
+                document.getElementById('feedback-msg').innerText = "✅ 评测成功！请在控制台查看详尽的错误发音诊断 XML 报告。";
                 document.getElementById('status').innerText = "✅ 评测完成";
                 console.log("【最终 XML 得分报告】", xml);
                 ws.close();
             } else if (res.code !== 0) {
                 document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
-                document.getElementById('status').innerText = "❌ 评测失败";
+                document.getElementById('status').innerText = "❌ 评测被拒";
                 ws.close();
             }
+        };
+
+        ws.onerror = () => {
+            document.getElementById('status').innerText = "❌ WebSocket 连接失败";
         };
     }
 </script>
