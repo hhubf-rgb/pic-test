@@ -13,29 +13,25 @@
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, "PingFang SC", sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* 导航栏 */
-        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 10; }
-        .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; display: flex; align-items: center; }
-        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
+        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
         .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
 
-        /* 状态与反馈面板 */
-        #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
 
-        /* 阅读区域 */
         .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.2; font-size: 19px; color: #333; }
         .text-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
-        .paragraph { margin-bottom: 20px; text-align: justify; text-indent: 2em; letter-spacing: 1px; }
+        .paragraph { margin-bottom: 20px; text-align: justify; text-indent: 2em; }
         .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; font-family: monospace; }
 
-        /* 控制台 */
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
-        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; color: #222; }
-        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; box-shadow: 0 4px 12px rgba(7,193,96,0.3); transition: transform 0.1s; }
-        #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; box-shadow: 0 4px 12px rgba(250,81,81,0.3); }
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
+        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
+        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; transition: transform 0.1s; }
+        #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: 500; }
+        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -50,7 +46,7 @@
             <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
             <button onclick="document.getElementById('feedback-panel').style.display='none'" style="border:none; background:none; color:#888; font-size:14px; cursor:pointer;">✖ 关闭</button>
         </div>
-        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555; background:rgba(255,255,255,0.6); padding:8px; border-radius:4px;">准备就绪</div>
+        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">准备就绪</div>
     </div>
 
     <div class="reading-area">
@@ -62,22 +58,18 @@
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
         <div id="status">点击开始朗读</div>
-        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none; outline:none;"></audio>
+        <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
     </div>
 
 <script>
-    // ==========================================
-    // 1. 核心配置：请填入讯飞控制台获取的密钥
-    // ==========================================
+    // 1. 已注入你的专属鉴权信息
     const CONFIG = {
         APPID: "979154ce", 
         API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    // ==========================================
-    // 2. 文本引擎与安全渲染
-    // ==========================================
+    // 2. 文本引擎
     const springParagraphs = [
         { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
         { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
@@ -102,9 +94,7 @@
     document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
     renderText();
 
-    // ==========================================
-    // 3. 录音引擎 (Recorder-Core 强制 16k WAV)
-    // ==========================================
+    // 3. 录音引擎
     let rec;
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
@@ -116,7 +106,6 @@
     recordBtn.onclick = () => { if (!rec || !rec.started) startRecording(); else stopRecording(); };
 
     function startRecording() {
-        // 重置 UI 状态
         feedbackPanel.style.display = 'none';
         document.getElementById('audioPlayback').style.display = 'none';
         
@@ -132,10 +121,9 @@
             rec.start();
             rec.started = true;
             recordBtn.classList.add('recording');
-            statusText.innerHTML = "<span style='color:var(--wechat-red);'>🔴 正在录音，请清晰朗读...</span>";
+            statusText.innerHTML = "<span style='color:var(--wechat-red);'>🔴 录音中...</span>";
         }, (msg) => {
-            statusText.innerHTML = "<span style='color:red;'>❌ 麦克风被拒，请检查系统权限</span>";
-            alert("无法访问麦克风！\n请确保在浏览器设置中允许了本网站的麦克风权限。\n" + msg);
+            statusText.innerText = "❌ 麦克风访问被拒";
         });
     }
 
@@ -143,42 +131,18 @@
         rec.stop((blob, duration) => {
             rec.started = false;
             recordBtn.classList.remove('recording');
-            
-            if(duration < 1500) {
-                statusText.innerText = "⚠️ 录音太短，请至少朗读两秒";
-                return;
-            }
+            if(duration < 1500) { statusText.innerText = "⚠️ 录音太短"; return; }
 
-            // 回放展示
             document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
             document.getElementById('audioPlayback').style.display = 'block';
-            
-            // 触发评测
             callIfeISE(blob);
-        }, (msg) => {
-            statusText.innerText = "❌ 录制出错: " + msg;
         });
     }
 
-    // ==========================================
-    // 4. 讯飞评测核心通信 (完全修复鉴权与竞态问题)
-    // ==========================================
-    
-    // 严谨的 Base64 转换 (异步)
-    function blobToBase64(blob) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = () => reject(new Error("文件读取失败"));
-            reader.readAsDataURL(blob);
-        });
-    }
-
-    // 严谨的签名计算
+    // 4. 讯飞通信逻辑
     function getAuthUrl() {
-        if (!CONFIG.API_KEY || !CONFIG.API_SECRET) throw new Error("API 密钥未配置");
         const host = "ise-api.xfyun.cn";
-        const date = new Date().toUTCString(); // 必须使用标准 UTC 时间
+        const date = new Date().toUTCString();
         const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
         const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
         const signature = CryptoJS.enc.Base64.stringify(signatureSha);
@@ -186,34 +150,35 @@
         const authorization = btoa(authorizationOrigin);
         return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
+
+    // 💡 核心修复：将带有 BOM 头的中文进行 Base64 编码
+    function getTextBase64() {
+        const rawText = '\uFEFF' + springParagraphs.map(p => p.normal).join('');
+        return window.btoa(unescape(encodeURIComponent(rawText)));
+    }
+
     async function callIfeISE(audioBlob) {
         feedbackPanel.style.display = 'block';
-        scoreDiv.innerText = "流上传中";
-        feedbackMsg.innerText = "正在将音频切片并流式传输至服务器...";
-        statusText.innerHTML = "<span style='color:var(--hkust-blue);'>🔄 正在进行流式评测...</span>";
+        scoreDiv.innerText = "上传中";
+        feedbackMsg.innerText = "正在发送数据...";
+        statusText.innerHTML = "<span style='color:var(--hkust-blue);'>🔄 评测进行中...</span>";
 
         try {
-            if (typeof CryptoJS === 'undefined') {
-                throw new Error("加密库未能加载");
-            }
-
+            const buffer = await audioBlob.arrayBuffer();
+            const dataArray = new Uint8Array(buffer);
+            
             const url = getAuthUrl();
             const ws = new WebSocket(url);
             
-            // 💡 核心修复：提取 ArrayBuffer 进行精准分片
-            const buffer = await audioBlob.arrayBuffer();
-            const dataArray = new Uint8Array(buffer);
-            const chunkSize = 1280; // 讯飞规定的黄金安全切片大小
+            const chunkSize = 1280;
             let offset = 0;
 
             ws.onopen = () => {
-                feedbackMsg.innerText = "网关连接成功，正在以 40ms 间隔发送切片数据...";
+                feedbackMsg.innerText = "✅ 连接成功！开始传输音频切片...";
                 
-                // 使用递归定时器模拟真实的流式麦克风发送
                 function sendNext() {
                     if (ws.readyState !== WebSocket.OPEN) return;
 
-                    // 1. 发送完毕，提交结束帧 (status: 2)
                     if (offset >= dataArray.length) {
                         ws.send(JSON.stringify({
                             business: { cmd: "auw", aus: 2 },
@@ -222,27 +187,23 @@
                         return;
                     }
 
-                    // 2. 截取 1280 字节的切片
                     let end = Math.min(offset + chunkSize, dataArray.length);
                     let chunk = dataArray.slice(offset, end);
-                    
-                    // 将 Uint8Array 高效转换为 Base64
-                    let binary = String.fromCharCode.apply(null, chunk);
+                    let binary = "";
+                    for(let i=0; i<chunk.length; i++) binary += String.fromCharCode(chunk[i]);
                     let base64Chunk = window.btoa(binary);
 
-                    // 3. 根据切片位置，发送不同状态的帧
                     if (offset === 0) {
-                        // 第一帧 (status: 0)：必须携带鉴权参数、文本和第一块音频
+                        // 💡 核心修复：发送 Base64 编码的文本
                         ws.send(JSON.stringify({
                             common: { app_id: CONFIG.APPID },
                             business: {
-                                category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", ttp: "text", cmd: "ssb",
-                                text: '\uFEFF' + springParagraphs.map(p => p.normal).join('') // 必须带上 BOM 头
+                                category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb",
+                                text: getTextBase64() // <--- 这里是解决断连的关键！
                             },
                             data: { status: 0, data: base64Chunk }
                         }));
                     } else {
-                        // 中间帧 (status: 1)：只传输纯音频切片
                         ws.send(JSON.stringify({
                             business: { cmd: "auw", aus: 1 },
                             data: { status: 1, data: base64Chunk }
@@ -250,47 +211,42 @@
                     }
 
                     offset = end;
-                    // 严格按照讯飞要求，每隔 40ms 发送一帧，防止网关熔断
-                    setTimeout(sendNext, 40); 
+                    setTimeout(sendNext, 40);
                 }
-
-                sendNext(); // 启动发送循环
+                sendNext();
             };
 
             ws.onmessage = (e) => {
                 const res = JSON.parse(e.data);
-                console.log("收到服务器实时回传:", res);
-
                 if (res.code === 0 && res.data && res.data.result) {
                     const xmlStr = atob(res.data.result);
                     const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
                     
                     scoreDiv.innerText = scoreMatch ? scoreMatch[1] : "N/A";
-                    feedbackMsg.innerHTML = "✅ <strong>评测成功！</strong> 您可以回听音频。完整的 XML 诊断数据已在控制台打印。";
+                    feedbackMsg.innerHTML = "🎉 <strong>成功！</strong> F12 控制台可查看具体错字详情。";
                     statusText.innerHTML = "<span style='color:var(--wechat-green);'>✅ 评测已完成</span>";
                     
                     console.log("【讯飞完整评测 XML 报告】\n", xmlStr);
                     ws.close();
                 } else if (res.code !== 0) {
-                    throw new Error(`业务报错: ${res.code} - ${res.message}`);
+                    // 修复了异步 UI 报错问题
+                    scoreDiv.innerText = "报错";
+                    feedbackMsg.innerHTML = `<span style="color:red;">API 拒绝 (错误码: ${res.code})</span>`;
+                    ws.close();
                 }
             };
 
-            ws.onerror = (err) => {
-                throw new Error("网络阻断，握手失败。请检查 API_KEY 配置。");
-            };
-
+            // 彻底修复 UI 不刷新的问题
             ws.onclose = (e) => {
-                if (e.code !== 1000 && scoreDiv.innerText === "流上传中") {
-                    throw new Error(`连接被异常掐断 (Code: ${e.code})`);
+                if (e.code !== 1000 && e.code !== 1005) {
+                    scoreDiv.innerText = "断开";
+                    feedbackMsg.innerHTML = `<span style="color:red;">被强制断开，错误码：${e.code}</span>`;
+                    statusText.innerText = "❌ 连接中断";
                 }
             };
 
         } catch (err) {
-            console.error("评测异常:", err);
-            scoreDiv.innerText = "评测失败";
-            feedbackMsg.innerHTML = `<span style="color:var(--wechat-red); font-weight:bold;">报错原因:</span> ${err.message}`;
-            statusText.innerHTML = "<span style='color:var(--wechat-red);'>❌ 系统遇到异常</span>";
+            console.error(err);
         }
     }
 </script>
