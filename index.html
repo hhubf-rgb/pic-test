@@ -3,159 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSC 智能评测</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://unpkg.com/recorder-core/recorder.mp3.min.js"></script>
+    <script src="https://unpkg.com/recorder-core/src/engine/wav.js"></script>
+    
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
-        body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* 导航栏 */
-        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; flex-shrink: 0; }
-        .back-btn { background: none; border: none; color: var(--hkust-blue); font-size: 14px; cursor: pointer; text-decoration: none; font-weight: bold; }
-        
-        .toggle-btn { 
-            background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; 
-            border-radius: 20px; font-size: 12px; cursor: pointer; transition: all 0.2s;
-        }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
+        body { font-family: -apple-system, sans-serif; background: #f9f9f9; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav-bar { background: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
+        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
+        .toggle-btn.active { background: var(--hkust-blue); color: white; }
 
-        /* 阅读区域 */
-        .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; color: #222; }
-        .text-title { font-size: 26px; font-weight: bold; margin-bottom: 30px; text-align: center; }
+        /* 阅读区 */
+        .reading-area { flex: 1; padding: 25px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
         .paragraph { margin-bottom: 25px; text-align: justify; text-indent: 2em; }
-        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; font-family: monospace; }
+        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
+
+        /* 评测反馈面板 */
+        #feedback-panel { background: #fffbe6; border: 1px solid #ffe58f; margin: 10px; padding: 10px; border-radius: 8px; display: none; font-size: 14px; }
 
         /* 控制台 */
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px 20px; text-align: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 15px 20px 30px; text-align: center; }
         #timer { font-size: 26px; font-weight: bold; margin-bottom: 10px; font-family: monospace; }
         #recordBtn { width: 64px; height: 64px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         #status { font-size: 13px; color: #999; margin-top: 10px; }
-        audio { width: 100%; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <div class="nav-bar">
-        <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
+        <button onclick="location.reload()" style="border:none; background:none; color:var(--hkust-blue); font-weight:bold; cursor:pointer;">刷新题目</button>
         <button id="toggleHint" class="toggle-btn">显示断句提示</button>
     </div>
 
     <div class="reading-area">
-        <div class="text-title">《春》</div>
+        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》</div>
         <div id="textContent"></div>
+    </div>
+
+    <div id="feedback-panel">
+        <strong>评测反馈：</strong> <span id="score-text">正在评分...</span>
+        <div id="detailed-feedback" style="margin-top:5px; color:#666; font-size:12px;"></div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
         <div id="status">准备就绪</div>
-        <audio id="audioPlayback" controls></audio>
+        <audio id="audioPlayback" controls style="width:100%; margin-top:10px; display:none;"></audio>
     </div>
 
 <script>
-    // 文本数据：已移除所有 // 符号
+    // --- 1. 讯飞配置 (请在此处填写) ---
+    const CONFIG = {
+        APPID: "979154ce",
+        API_KEY: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5",
+        API_SECRET: "62051bfe38a7103fede0a6cb227fb3bb"
+    };
+
+    // --- 2. 文本与渲染逻辑 ---
     const springParagraphs = [
-        { 
-            normal: "盼望着，盼望着，东风来了，春天的脚步近了。",
-            hint: "盼望着，/ 盼望着，/ 东风来了，/ 春天的脚步近了。"
-        },
-        {
-            normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。",
-            hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。"
-        },
-        {
-            normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。",
-            hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。/ 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。/ 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。/ 风/ 轻悄悄的，/ 草/ 软绵绵的。"
-        },
-        {
-            normal: "“吹面不寒杨柳风”，不错的，像母亲的手抚摸着你。风里带来些新翻的泥土的气息，混着青草味儿，还有各种花的香，都在微微湿润的空气里酝酿。鸟儿将巢安在繁花绿叶当中，高兴起来了，呼朋引伴地卖弄清脆的喉咙，唱出宛转的曲子，跟轻风流水应和着。牛背上牧童的短笛，这时候也成天嘹亮地响着。",
-            hint: "“吹面不寒杨柳风”，/ 不错的，/ 像母亲的手抚摸着你。/ 风里带来些新翻的泥土的气息，/ 混着青草味儿，/ 还有各种花的香，/ 都在微微湿润的空气里酝酿。/ 鸟儿将巢安在繁花绿叶当中，/ 高兴起来了，/ 呼朋引伴地卖弄清脆的喉咙，/ 唱出宛转的曲子，/ 跟轻风流水应和着。/ 牛背上牧童的短笛，/ 这时候也成天嘹亮地响着。"
-        },
-        {
-            normal: "雨是最寻常的，一下就是三两天。可别恼。看，像牛毛，像花针，像细丝，密密地斜织着，人家屋顶上全笼着一层薄烟。树叶儿却绿得发亮，小草儿也青得逼你的眼。傍晚时候，上灯了，一点点黄晕的光，烘托出一片安静而和平的夜。在乡下，小路上，石桥边，有撑起伞慢慢走着的人，地里还有工作的农民，披着蓑戴着笠。他们的房屋，稀稀疏疏的，在雨里静默着。",
-            hint: "雨/ 是最寻常的，/ 一下就是三两天。/ 可别恼。/ 看，/ 像牛毛，/ 像花针，/ 像细丝，/ 密密地斜织着，/ 人家屋顶上/ 全笼着一层薄烟。/ 树叶儿却绿得发亮，/ 小草儿也青得逼你的眼。/ 傍晚时候，/ 上灯了，/ 一点点黄晕的光，/ 烘托出一片安静而和平的夜。/ 在乡下，/ 小路上，/ 石桥边，/ 有撑起伞慢慢走着的人，/ 地里还有工作的农民，/ 披着蓑/ 戴着笠。/ 他们的房屋，/ 稀稀疏疏的，/ 在雨里静默着。"
-        },
-        {
-            normal: "天上风筝渐渐多了，地上孩子也多了。城里乡下，家家户户，老老小小，也赶趟儿似的，一个个都出来了。舒活舒活筋骨，抖擞抖擞精神，各做各的一份儿事去。“一年之计在于春”，刚起头儿，有的是工夫，有的是希望。",
-            hint: "天上/ 风筝渐渐多了，/ 地上/ 孩子也多了。/ 城里乡下，/ 家家户户，/ 老老小小，/ 也赶趟儿似的，/ 一个个都出来了。/ 舒活舒活筋骨，/ 抖擞抖擞精神，/ 各做各的一份儿事去。/ “一年之计在于春”，/ 刚起头儿，/ 有的是工夫，/ 有的是希望。"
-        },
-        {
-            normal: "春天像刚落地的娃娃，从头到脚都是新的，它生长着。\n春天像小姑娘，花枝招展的，笑着，走着。\n春天像健壮的青年，有铁一般的胳膊和腰脚，领着我们上前去。",
-            hint: "春天/ 像刚落地的娃娃，/ 从头到脚都是新的，/ 它生长着。\n春天/ 像小姑娘，/ 花枝招展的，/ 笑着，/走着。\n春天/ 像健壮的青年，/ 有铁一般的胳膊和腰脚，/ 领着我们上前去。"
-        }
+        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，/ 春天的脚步近了。" },
+        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。" }
     ];
 
     let showHint = false;
-    const contentContainer = document.getElementById('textContent');
-    const toggleBtn = document.getElementById('toggleHint');
-
+    const contentDiv = document.getElementById('textContent');
     function renderText() {
-        contentContainer.innerHTML = ''; 
-        springParagraphs.forEach(para => {
-            const p = document.createElement('div');
-            p.className = 'paragraph';
-            let text = showHint ? para.hint : para.normal;
-            
-            // 渲染逻辑：仅处理换行和单斜杠
-            let htmlContent = text.replace(/\n/g, '<br>')
-                .replace(/\//g, '<span class="pause-mark">/</span>');
-            
-            p.innerHTML = htmlContent;
-            contentContainer.appendChild(p);
+        contentDiv.innerHTML = '';
+        springParagraphs.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'paragraph';
+            div.innerHTML = (showHint ? p.hint : p.normal).replace(/\//g, '<span class="pause-mark">/</span>');
+            contentDiv.appendChild(div);
         });
-        toggleBtn.innerText = showHint ? "隐藏断句提示" : "显示断句提示";
-        toggleBtn.classList.toggle('active', showHint);
+        document.getElementById('toggleHint').classList.toggle('active', showHint);
     }
-
-    toggleBtn.onclick = () => { showHint = !showHint; renderText(); };
+    document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
     renderText();
 
-    // 录音逻辑
+    // --- 3. 录音逻辑 (使用 Recorder-Core 确保 16k WAV) ---
+    let rec, timerInterval;
     const recordBtn = document.getElementById('recordBtn');
     const timerDisplay = document.getElementById('timer');
-    const audioPlayback = document.getElementById('audioPlayback');
-    const statusText = document.getElementById('status');
-    let mediaRecorder, chunks = [], timerInterval;
 
-    function getMimeType() {
-        const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/wav'];
-        for (const t of types) { if (MediaRecorder.isTypeSupported(t)) return t; }
-        return '';
-    }
-
-    recordBtn.onclick = async () => {
-        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mimeType = getMimeType();
-                mediaRecorder = new MediaRecorder(stream, { mimeType });
-                chunks = [];
-                mediaRecorder.onstart = () => {
-                    let sec = 0;
-                    timerInterval = setInterval(() => {
-                        sec++;
-                        timerDisplay.innerText = new Date(sec * 1000).toISOString().substr(14, 5);
-                    }, 1000);
-                };
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    clearInterval(timerInterval);
-                    const blob = new Blob(chunks, { type: mimeType });
-                    audioPlayback.src = URL.createObjectURL(blob);
-                    statusText.innerText = "录音完成，请回听";
-                };
-                mediaRecorder.start(200);
-                recordBtn.innerText = "停止";
-                recordBtn.classList.add('recording');
-                statusText.innerText = "正在录制中...";
-            } catch (err) { statusText.innerText = "权限拒绝或设备错误"; }
+    recordBtn.onclick = () => {
+        if (!rec || !rec.started) {
+            startRec();
         } else {
-            mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(t => t.stop());
-            recordBtn.innerText = "重录";
-            recordBtn.classList.remove('recording');
+            stopRec();
         }
     };
+
+    function startRec() {
+        rec = Recorder({
+            type: "wav", sampleRate: 16000, bitRate: 16,
+            onProcess: (buffers, powerLevel, bufferDuration) => {
+                const sec = Math.floor(bufferDuration / 1000);
+                timerDisplay.innerText = new Date(sec * 1000).toISOString().substr(14, 5);
+            }
+        });
+        rec.open(() => {
+            rec.start();
+            rec.started = true;
+            recordBtn.classList.add('recording');
+            document.getElementById('status').innerText = "正在录音，请清晰朗读内容...";
+        });
+    }
+
+    function stopRec() {
+        rec.stop((blob, duration) => {
+            rec.started = false;
+            recordBtn.classList.remove('recording');
+            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
+            document.getElementById('audioPlayback').style.display = 'block';
+            
+            // 触发讯飞评测
+            sendToISE(blob);
+        }, (msg) => console.log("录音失败:" + msg));
+    }
+
+    // --- 4. 讯飞 ISE 鉴权与 WebSocket 逻辑 ---
+    function getAuthUrl() {
+        const host = "ise-api.xfyun.cn";
+        const date = new Date().toUTCString();
+        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/ise HTTP/1.1`;
+        const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
+        const signature = CryptoJS.enc.Base64.stringify(signatureSha);
+        const authorizationOrigin = `api_key="${CONFIG.API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+        const authorization = btoa(authorizationOrigin);
+        return `wss://${host}/v2/ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
+    }
+
+    function sendToISE(audioBlob) {
+        document.getElementById('feedback-panel').style.display = 'block';
+        document.getElementById('status').innerText = "AI 正在评测发音...";
+        
+        const url = getAuthUrl();
+        const ws = new WebSocket(url);
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const base64Audio = reader.result.split(',')[1];
+            ws.onopen = () => {
+                // 发送第一帧参数
+                ws.send(JSON.stringify({
+                    common: { app_id: CONFIG.APPID },
+                    business: {
+                        category: "read_sentence", // PSC短文朗读模式
+                        rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
+                        text: '\uFEFF' + springParagraphs.map(p=>p.normal).join('') // 待评测原文
+                    },
+                    data: { status: 0 }
+                }));
+
+                // 发送音频帧
+                ws.send(JSON.stringify({
+                    business: { cmd: "auw", aus: 1 },
+                    data: { status: 1, data: base64Audio }
+                }));
+
+                // 发送结束帧
+                ws.send(JSON.stringify({
+                    business: { cmd: "auw", aus: 2 },
+                    data: { status: 2 }
+                }));
+            };
+
+            ws.onmessage = (e) => {
+                const res = JSON.parse(e.data);
+                if (res.code === 0 && res.data.result) {
+                    const xmlStr = atob(res.data.result);
+                    parseResult(xmlStr);
+                    ws.close();
+                } else if (res.code !== 0) {
+                    document.getElementById('score-text').innerText = "评测出错: " + res.message;
+                }
+            };
+        };
+        reader.readAsDataURL(audioBlob);
+    }
+
+    function parseResult(xml) {
+        // 简单提取总分 (实际可使用 DOMParser 解析 XML 细节)
+        const totalScoreMatch = xml.match(/total_score="([^"]+)"/);
+        const score = totalScoreMatch ? totalScoreMatch[1] : "无法读取分数";
+        
+        document.getElementById('score-text').innerText = score + " 分";
+        document.getElementById('detailed-feedback').innerText = "详细 XML 诊断数据已在控制台输出，可用于后续 GenAI 分析。";
+        document.getElementById('status').innerText = "评测完成";
+        console.log("讯飞 ISE 原始 XML:", xml);
+    }
 </script>
 </body>
 </html>
