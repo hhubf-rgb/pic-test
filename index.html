@@ -186,79 +186,107 @@
         const authorization = btoa(authorizationOrigin);
         return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
     }
-
     async function callIfeISE(audioBlob) {
         feedbackPanel.style.display = 'block';
-        scoreDiv.innerText = "连接中";
-        feedbackMsg.innerText = "正在处理音频并建立安全连接...";
-        statusText.innerHTML = "<span style='color:var(--hkust-blue);'>🔄 正在获取 AI 评测报告...</span>";
+        scoreDiv.innerText = "流上传中";
+        feedbackMsg.innerText = "正在将音频切片并流式传输至服务器...";
+        statusText.innerHTML = "<span style='color:var(--hkust-blue);'>🔄 正在进行流式评测...</span>";
 
         try {
-            // 确保 CryptoJS 已经加载
             if (typeof CryptoJS === 'undefined') {
-                throw new Error("加密核心库未能加载，请检查网络是否拦截了 cdnjs。");
+                throw new Error("加密库未能加载");
             }
 
-            // 1. 同步等待音频转码（消灭竞态条件）
-            const base64Audio = await blobToBase64(audioBlob);
-            
-            // 2. 获取签名并建立 WebSocket
             const url = getAuthUrl();
             const ws = new WebSocket(url);
+            
+            // 💡 核心修复：提取 ArrayBuffer 进行精准分片
+            const buffer = await audioBlob.arrayBuffer();
+            const dataArray = new Uint8Array(buffer);
+            const chunkSize = 1280; // 讯飞规定的黄金安全切片大小
+            let offset = 0;
 
-            // 3. 严格的事件生命周期管控
             ws.onopen = () => {
-                feedbackMsg.innerText = "已连接到讯飞服务器，正在上传语音数据...";
+                feedbackMsg.innerText = "网关连接成功，正在以 40ms 间隔发送切片数据...";
                 
-                // 帧1：参数帧（长文本使用 read_chapter，必须包含 BOM 头）
-                const params = {
-                    common: { app_id: CONFIG.APPID },
-                    business: {
-                        category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", ttp: "text", cmd: "ssb",
-                        text: '\uFEFF' + springParagraphs.map(p => p.normal).join('')
-                    },
-                    data: { status: 0 }
-                };
-                ws.send(JSON.stringify(params));
+                // 使用递归定时器模拟真实的流式麦克风发送
+                function sendNext() {
+                    if (ws.readyState !== WebSocket.OPEN) return;
 
-                // 帧2：数据帧
-                ws.send(JSON.stringify({ business: { cmd: "auw", aus: 1 }, data: { status: 1, data: base64Audio } }));
+                    // 1. 发送完毕，提交结束帧 (status: 2)
+                    if (offset >= dataArray.length) {
+                        ws.send(JSON.stringify({
+                            business: { cmd: "auw", aus: 2 },
+                            data: { status: 2, data: "" }
+                        }));
+                        return;
+                    }
 
-                // 帧3：结束帧
-                ws.send(JSON.stringify({ business: { cmd: "auw", aus: 2 }, data: { status: 2 } }));
+                    // 2. 截取 1280 字节的切片
+                    let end = Math.min(offset + chunkSize, dataArray.length);
+                    let chunk = dataArray.slice(offset, end);
+                    
+                    // 将 Uint8Array 高效转换为 Base64
+                    let binary = String.fromCharCode.apply(null, chunk);
+                    let base64Chunk = window.btoa(binary);
+
+                    // 3. 根据切片位置，发送不同状态的帧
+                    if (offset === 0) {
+                        // 第一帧 (status: 0)：必须携带鉴权参数、文本和第一块音频
+                        ws.send(JSON.stringify({
+                            common: { app_id: CONFIG.APPID },
+                            business: {
+                                category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", ttp: "text", cmd: "ssb",
+                                text: '\uFEFF' + springParagraphs.map(p => p.normal).join('') // 必须带上 BOM 头
+                            },
+                            data: { status: 0, data: base64Chunk }
+                        }));
+                    } else {
+                        // 中间帧 (status: 1)：只传输纯音频切片
+                        ws.send(JSON.stringify({
+                            business: { cmd: "auw", aus: 1 },
+                            data: { status: 1, data: base64Chunk }
+                        }));
+                    }
+
+                    offset = end;
+                    // 严格按照讯飞要求，每隔 40ms 发送一帧，防止网关熔断
+                    setTimeout(sendNext, 40); 
+                }
+
+                sendNext(); // 启动发送循环
             };
 
             ws.onmessage = (e) => {
                 const res = JSON.parse(e.data);
+                console.log("收到服务器实时回传:", res);
+
                 if (res.code === 0 && res.data && res.data.result) {
-                    // 成功解析出 XML 分数
                     const xmlStr = atob(res.data.result);
                     const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
                     
                     scoreDiv.innerText = scoreMatch ? scoreMatch[1] : "N/A";
-                    feedbackMsg.innerHTML = "✅ <strong>评测成功！</strong> 您可以回听音频对比。完整的 XML 诊断数据已保存在开发者控制台。";
+                    feedbackMsg.innerHTML = "✅ <strong>评测成功！</strong> 您可以回听音频。完整的 XML 诊断数据已在控制台打印。";
                     statusText.innerHTML = "<span style='color:var(--wechat-green);'>✅ 评测已完成</span>";
                     
                     console.log("【讯飞完整评测 XML 报告】\n", xmlStr);
                     ws.close();
                 } else if (res.code !== 0) {
-                    // 业务逻辑错误 (例如 10105 音频格式错, 10313 Key 错误)
-                    throw new Error(`错误码 ${res.code}：${res.message}`);
+                    throw new Error(`业务报错: ${res.code} - ${res.message}`);
                 }
             };
 
             ws.onerror = (err) => {
-                throw new Error("网络阻断，握手失败（通常是因为 API_KEY 不对或跨域限制）");
+                throw new Error("网络阻断，握手失败。请检查 API_KEY 配置。");
             };
 
             ws.onclose = (e) => {
-                if (e.code !== 1000 && scoreDiv.innerText === "连接中") {
-                    throw new Error(`连接被服务器掐断 (Code: ${e.code})`);
+                if (e.code !== 1000 && scoreDiv.innerText === "流上传中") {
+                    throw new Error(`连接被异常掐断 (Code: ${e.code})`);
                 }
             };
 
         } catch (err) {
-            // 最强容错：任何环节崩溃，都会把原因直接写在面板上
             console.error("评测异常:", err);
             scoreDiv.innerText = "评测失败";
             feedbackMsg.innerHTML = `<span style="color:var(--wechat-red); font-weight:bold;">报错原因:</span> ${err.message}`;
