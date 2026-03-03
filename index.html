@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSC 智能评测 - HKUST</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
+    <script src="https://unpkg.com/recorder-core/recorder.mp3.min.js"></script>
+    <script src="https://unpkg.com/recorder-core/src/engine/wav.js"></script>
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -117,7 +118,7 @@
         });
     }
 
-    // 🚀 核心黑科技：外科手术级提取纯 PCM 音频流
+    // 💡 成功的钥匙一：精准提取纯 PCM 音频
     function extractPCM(arrayBuffer) {
         const view = new DataView(arrayBuffer);
         let offset = 12; // 跳过 'RIFF', 文件大小, 'WAVE'
@@ -150,10 +151,10 @@
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 发送高纯度音频流...";
+        document.getElementById('status').innerText = "🔄 验证通过，上传音频流...";
 
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = extractPCM(buffer); // 获取裸流
+        const dataArray = extractPCM(buffer); // 调用探针提取纯音频
         
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
@@ -164,7 +165,6 @@
                 if (ws.readyState !== 1) return;
                 
                 if (offset >= dataArray.length) {
-                    // 🚀 核心细节修复：结束帧必须带上为空的 data 字段，防止引擎傻等
                     ws.send(JSON.stringify({business:{cmd:"auw", aus:2}, data:{status:2, data:""}}));
                     return;
                 }
@@ -174,19 +174,17 @@
                 let base64Chunk = bufferToBase64(chunk);
                 
                 if (offset === 0) {
-                    // 🚀 文本核能级清洗 + 标准 Base64 编码
+                    // 💡 成功的钥匙二：文本核能清洗 + 直接拼接 BOM 头（绝不 Base64！）
                     let rawText = springParagraphs.map(p => p.normal).join('');
                     let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！“”；：]/g, '');
-                    // encodeURIComponent -> unescape -> btoa，这是最原汁原味且安全的 UTF-8 转 Base64 方案
-                    let textBase64 = window.btoa(unescape(encodeURIComponent('\uFEFF' + cleanText)));
 
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
                             category: "read_chapter",
-                            aue: "raw", // 恢复为 raw，因为我们传的是高纯度 PCM
+                            aue: "raw", 
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: textBase64 // 这次带上了坚不可摧的 Base64 护甲
+                            text: '\uFEFF' + cleanText // 讯飞只需要原汁原味带印章的中文字符串
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
