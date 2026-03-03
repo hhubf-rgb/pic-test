@@ -13,22 +13,22 @@
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
         body { font-family: -apple-system, "PingFang SC", sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
         .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
         .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
+        .toggle-btn.active { background: var(--hkust-blue); color: white; }
 
         #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
 
-        .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.2; font-size: 19px; color: #333; }
+        .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.2; font-size: 19px; }
         .text-title { font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center; }
-        .paragraph { margin-bottom: 20px; text-align: justify; text-indent: 2em; }
-        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; font-family: monospace; }
+        .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify; }
+        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; }
 
         .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
-        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
-        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; transition: transform 0.1s; }
+        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; }
+        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
         #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: bold; }
@@ -44,9 +44,9 @@
     <div id="feedback-panel">
         <div style="display:flex; justify-content:space-between; align-items:center;">
             <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
-            <button onclick="document.getElementById('feedback-panel').style.display='none'" style="border:none; background:none; color:#888; font-size:14px; cursor:pointer;">✖ 关闭</button>
+            <button onclick="document.getElementById('feedback-panel').style.display='none'">✖</button>
         </div>
-        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">准备就绪</div>
+        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">等待数据中...</div>
     </div>
 
     <div class="reading-area">
@@ -57,36 +57,33 @@
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="status">点击开始朗读</div>
+        <div id="status">准备就绪</div>
         <audio id="audioPlayback" controls style="width:100%; margin-top:15px; display:none;"></audio>
     </div>
 
 <script>
-    // 1. 已注入你的专属鉴权信息
+    // 1. API 配置 (已填入你的 Key，测试成功后记得去后台重置 Secret 保证安全！)
     const CONFIG = {
         APPID: "979154ce", 
         API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
         API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
     };
 
-    // 2. 文本引擎
+    // 2. 文本内容 - 《春》
     const springParagraphs = [
-        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
-        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
-        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//" }
+        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，/ 春天的脚步近了。" },
+        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。/ 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。" },
+        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。/ 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。/ 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。/ 风/ 轻悄悄的，/ 草/ 软绵绵的。" }
     ];
 
     let showHint = false;
-    const contentDiv = document.getElementById('textContent');
     function renderText() {
+        const contentDiv = document.getElementById('textContent');
         contentDiv.innerHTML = '';
         springParagraphs.forEach(p => {
             const div = document.createElement('div');
             div.className = 'paragraph';
-            let text = showHint ? p.hint : p.normal;
-            text = text.replace(/\/\//g, '【双斜】').replace(/\//g, '【单斜】');
-            text = text.replace(/【双斜】/g, '<span class="pause-mark">//</span>').replace(/【单斜】/g, '<span class="pause-mark">/</span>');
-            div.innerHTML = text;
+            div.innerHTML = (showHint ? p.hint : p.normal).replace(/\//g, '<span class="pause-mark">/</span>');
             contentDiv.appendChild(div);
         });
         document.getElementById('toggleHint').classList.toggle('active', showHint);
@@ -96,174 +93,123 @@
 
     // 3. 录音引擎
     let rec;
-    const recordBtn = document.getElementById('recordBtn');
-    const timerDisplay = document.getElementById('timer');
-    const statusText = document.getElementById('status');
-    const feedbackPanel = document.getElementById('feedback-panel');
-    const scoreDiv = document.getElementById('totalScore');
-    const feedbackMsg = document.getElementById('feedback-msg');
+    document.getElementById('recordBtn').onclick = () => {
+        if (!rec || !rec.started) startRec(); else stopRec();
+    };
 
-    recordBtn.onclick = () => { if (!rec || !rec.started) startRecording(); else stopRecording(); };
-
-    function startRecording() {
-        feedbackPanel.style.display = 'none';
-        document.getElementById('audioPlayback').style.display = 'none';
-        
-        rec = Recorder({
-            type: "wav", sampleRate: 16000, bitRate: 16,
-            onProcess: (buffers, powerLevel, bufferDuration) => {
-                const sec = Math.floor(bufferDuration / 1000);
-                timerDisplay.innerText = new Date(sec * 1000).toISOString().substr(14, 5);
-            }
-        });
-        
-        rec.open(() => {
-            rec.start();
-            rec.started = true;
-            recordBtn.classList.add('recording');
-            statusText.innerHTML = "<span style='color:var(--wechat-red);'>🔴 录音中...</span>";
-        }, (msg) => {
-            statusText.innerText = "❌ 麦克风访问被拒";
+    function startRec() {
+        rec = Recorder({type:"wav", sampleRate:16000, bitRate:16, onProcess:(buffers, powerLevel, duration) => {
+            document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
+        }});
+        rec.open(() => { 
+            rec.start(); 
+            rec.started = true; 
+            document.getElementById('recordBtn').classList.add('recording'); 
+            document.getElementById('status').innerText = "🔴 录音中..."; 
+            document.getElementById('feedback-panel').style.display = 'none';
         });
     }
 
-    function stopRecording() {
-        rec.stop((blob, duration) => {
-            rec.started = false;
-            recordBtn.classList.remove('recording');
-            if(duration < 1500) { statusText.innerText = "⚠️ 录音太短"; return; }
-
-            document.getElementById('audioPlayback').src = URL.createObjectURL(blob);
-            document.getElementById('audioPlayback').style.display = 'block';
+    function stopRec() {
+        rec.stop((blob) => {
+            rec.started = false; document.getElementById('recordBtn').classList.remove('recording');
+            const audioUrl = URL.createObjectURL(blob);
+            document.getElementById('audioPlayback').src = audioUrl; document.getElementById('audioPlayback').style.display = 'block';
             callIfeISE(blob);
         });
     }
 
-    // 4. 讯飞通信逻辑
-    function getAuthUrl() {
-        const host = "ise-api.xfyun.cn";
-        const date = new Date().toUTCString();
-        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
-        const signatureSha = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET);
-        const signature = CryptoJS.enc.Base64.stringify(signatureSha);
-        const authorizationOrigin = `api_key="${CONFIG.API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-        const authorization = btoa(authorizationOrigin);
-        return `wss://${host}/v2/open-ise?authorization=${authorization}&date=${encodeURIComponent(date)}&host=${host}`;
-    }
-
-// 💡 核心修复：清理文本，只保留汉字和中文标点，剔除斜线等干扰项
-    function getTextBase64() {
-        // 1. 合并所有段落的内容
+    // 4. 核心：核能级文本清理与 Base64 (彻底解决 48195)
+    function getCleanTextBase64() {
         let rawText = springParagraphs.map(p => p.normal).join('');
+        // 只保留汉字和全角中文标点
+        const cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！“”；：]/g, ''); 
+        console.log("【验证1：纯净文本内容】", cleanText);
+
+        const encoder = new TextEncoder();
+        const textData = encoder.encode(cleanText);
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // 严格注入 BOM
         
-        // 2. 超强清洗逻辑：
-        // 移除所有斜杠、换行符(\n)、回车符(\r)、制表符(\t)以及普通空格
-        // 只保留汉字、基本中文标点（，。？！“”；：）
-        rawText = rawText.replace(/[\/\n\r\t\s]/g, '')
-                         .replace(/\\/g, ''); 
+        const combined = new Uint8Array(bom.length + textData.length);
+        combined.set(bom);
+        combined.set(textData, bom.length);
+        console.log("【验证2：前五个字节内容(应包含239, 187, 191)】", combined.slice(0, 5));
 
-        // 3. 打印出来检查（你可以在 F12 控制台看到最终发给讯飞的是什么）
-        console.log("最终评测纯文本内容:", rawText);
-        
-        // 4. 必须带上 UTF-8 的 BOM 头 (\uFEFF)
-        const textWithBOM = '\uFEFF' + rawText;
-        
-        // 5. 鲁棒的 Base64 转换：
-        // btoa 默认不支持 Unicode。必须先用 encodeURIComponent 转码，
-        // 再通过 unescape 转为字节流，最后进行 Base64 编码。
-        return window.btoa(unescape(encodeURIComponent(textWithBOM)));
-    }
-    async function callIfeISE(audioBlob) {
-        feedbackPanel.style.display = 'block';
-        scoreDiv.innerText = "上传中";
-        feedbackMsg.innerText = "正在发送数据...";
-        statusText.innerHTML = "<span style='color:var(--hkust-blue);'>🔄 评测进行中...</span>";
-
-        try {
-            const buffer = await audioBlob.arrayBuffer();
-            const dataArray = new Uint8Array(buffer);
-            
-            const url = getAuthUrl();
-            const ws = new WebSocket(url);
-            
-            const chunkSize = 1280;
-            let offset = 0;
-
-            ws.onopen = () => {
-                feedbackMsg.innerText = "✅ 连接成功！开始传输音频切片...";
-                
-                function sendNext() {
-                    if (ws.readyState !== WebSocket.OPEN) return;
-
-                    if (offset >= dataArray.length) {
-                        ws.send(JSON.stringify({
-                            business: { cmd: "auw", aus: 2 },
-                            data: { status: 2, data: "" }
-                        }));
-                        return;
-                    }
-
-                    let end = Math.min(offset + chunkSize, dataArray.length);
-                    let chunk = dataArray.slice(offset, end);
-                    let binary = "";
-                    for(let i=0; i<chunk.length; i++) binary += String.fromCharCode(chunk[i]);
-                    let base64Chunk = window.btoa(binary);
-
-                    if (offset === 0) {
-                        // 💡 核心修复：发送 Base64 编码的文本
-                        ws.send(JSON.stringify({
-                            common: { app_id: CONFIG.APPID },
-                            business: {
-                                category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb",
-                                text: getTextBase64() // <--- 这里是解决断连的关键！
-                            },
-                            data: { status: 0, data: base64Chunk }
-                        }));
-                    } else {
-                        ws.send(JSON.stringify({
-                            business: { cmd: "auw", aus: 1 },
-                            data: { status: 1, data: base64Chunk }
-                        }));
-                    }
-
-                    offset = end;
-                    setTimeout(sendNext, 40);
-                }
-                sendNext();
-            };
-
-            ws.onmessage = (e) => {
-                const res = JSON.parse(e.data);
-                if (res.code === 0 && res.data && res.data.result) {
-                    const xmlStr = atob(res.data.result);
-                    const scoreMatch = xmlStr.match(/total_score="([^"]+)"/);
-                    
-                    scoreDiv.innerText = scoreMatch ? scoreMatch[1] : "N/A";
-                    feedbackMsg.innerHTML = "🎉 <strong>成功！</strong> F12 控制台可查看具体错字详情。";
-                    statusText.innerHTML = "<span style='color:var(--wechat-green);'>✅ 评测已完成</span>";
-                    
-                    console.log("【讯飞完整评测 XML 报告】\n", xmlStr);
-                    ws.close();
-                } else if (res.code !== 0) {
-                    // 修复了异步 UI 报错问题
-                    scoreDiv.innerText = "报错";
-                    feedbackMsg.innerHTML = `<span style="color:red;">API 拒绝 (错误码: ${res.code})</span>`;
-                    ws.close();
-                }
-            };
-
-            // 彻底修复 UI 不刷新的问题
-            ws.onclose = (e) => {
-                if (e.code !== 1000 && e.code !== 1005) {
-                    scoreDiv.innerText = "断开";
-                    feedbackMsg.innerHTML = `<span style="color:red;">被强制断开，错误码：${e.code}</span>`;
-                    statusText.innerText = "❌ 连接中断";
-                }
-            };
-
-        } catch (err) {
-            console.error(err);
+        let binary = '';
+        for (let i = 0; i < combined.byteLength; i++) {
+            binary += String.fromCharCode(combined[i]);
         }
+        return window.btoa(binary);
+    }
+
+    function getAuthUrl() {
+        const host = "ise-api.xfyun.cn", date = new Date().toUTCString();
+        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
+        const signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET));
+        const authOrigin = `api_key="${CONFIG.API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+        return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
+    }
+
+    // 5. 核心：音频切片并发通信
+    async function callIfeISE(audioBlob) {
+        document.getElementById('feedback-panel').style.display = 'block';
+        document.getElementById('totalScore').innerText = "评测中";
+        document.getElementById('status').innerText = "🔄 AI 正在分析音频流...";
+
+        const buffer = await audioBlob.arrayBuffer();
+        const dataArray = new Uint8Array(buffer);
+        const ws = new WebSocket(getAuthUrl());
+        const chunkSize = 1280; 
+        let offset = 0;
+
+        ws.onopen = () => {
+            const sendNext = () => {
+                if (ws.readyState !== 1) return;
+                
+                // 结束帧
+                if (offset >= dataArray.length) {
+                    ws.send(JSON.stringify({business:{cmd:"auw", aus:2}, data:{status:2}}));
+                    return;
+                }
+                
+                let end = Math.min(offset + chunkSize, dataArray.length);
+                let chunk = dataArray.slice(offset, end);
+                let binary = '';
+                for(let i=0; i<chunk.length; i++) binary += String.fromCharCode(chunk[i]);
+                
+                if (offset === 0) {
+                    // 第一帧：携带经过强力验证的文本参数
+                    ws.send(JSON.stringify({
+                        common: {app_id: CONFIG.APPID},
+                        business: {category: "read_chapter", rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", text: getCleanTextBase64()},
+                        data: {status: 0, data: window.btoa(binary)}
+                    }));
+                } else {
+                    // 后续帧：只传音频
+                    ws.send(JSON.stringify({business: {cmd: "auw", aus: 1}, data: {status: 1, data: window.btoa(binary)}}));
+                }
+                offset = end;
+                setTimeout(sendNext, 40); // 维持 40ms 流式间隔
+            };
+            sendNext();
+        };
+
+        ws.onmessage = (e) => {
+            const res = JSON.parse(e.data);
+            if (res.code === 0 && res.data.result) {
+                const xml = atob(res.data.result);
+                const score = xml.match(/total_score="([^"]+)"/)[1];
+                document.getElementById('totalScore').innerText = score;
+                document.getElementById('feedback-msg').innerText = "🎉 评测成功！XML 报告已输出至控制台。";
+                document.getElementById('status').innerText = "✅ 评测完成";
+                console.log("【最终得分 XML】:\n", xml);
+                ws.close();
+            } else if (res.code !== 0) {
+                document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
+                document.getElementById('status').innerText = "❌ 评测被拒";
+                ws.close();
+            }
+        };
     }
 </script>
 </body>
