@@ -120,13 +120,17 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    async function callIfeISE(audioBlob) {
+async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
         document.getElementById('status').innerText = "🔄 评测流上传中...";
 
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = new Uint8Array(buffer);
+        const fullArray = new Uint8Array(buffer);
+        
+        // 🚀 核心修复：直接切掉 WAV 文件的 44 字节头部，提取纯 PCM 原始数据！
+        const dataArray = fullArray.slice(44); 
+        
         const ws = new WebSocket(getAuthUrl());
         const chunkSize = 1280; 
         let offset = 0;
@@ -145,16 +149,15 @@
                 let base64Chunk = btoa(Array.from(chunk).map(b => String.fromCharCode(b)).join(''));
                 
                 if (offset === 0) {
-                    // 核心修复：纯原生字符串传递。丢掉 Base64 文本编码。
                     let rawText = springParagraphs.map(p => p.normal).join('');
-                    let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！“”；：]/g, ''); // 清理所有非汉字与常见标点
+                    let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！“”；：]/g, '');
 
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", // 长文模式
+                            category: "read_chapter", // 恢复使用长文模式
                             rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: '\uFEFF' + cleanText // 只保留 BOM 头与纯净汉字，绝不 Base64
+                            text: '\uFEFF' + cleanText
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
