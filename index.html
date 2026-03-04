@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 朗读训练 - 纯净录音版</title>
+    <title>PSC 朗读训练 </title>
     
     <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
 
@@ -211,18 +211,23 @@
     const contentDiv = document.getElementById('textContent');
     const toggleBtn = document.getElementById('toggleHint');
 
-    function render() {
-        contentDiv.innerHTML = ''; // 清空当前内容
+    function render() { // 或者是 renderText，看你代码里叫什么
+        contentDiv.innerHTML = ''; 
         
         articleData.forEach(item => {
             const p = document.createElement('div');
             p.className = 'paragraph';
             
             if (isHintOn) {
-                // 如果开启提示，把 "/" 替换成带颜色的符号
-                let html = item.hint
-                    .replace(/\/\//g, '<span class="pause-mark">‖</span>') // 双斜杠换成双竖线
-                    .replace(/\//g, '<span class="pause-mark">|</span>');  // 单斜杠换成单竖线
+                // 🚀 核心修复：使用正则回调函数，一次性搞定，绝不误伤 HTML
+                let html = item.hint.replace(/(\/\/|\/)/g, function(match) {
+                    // 如果匹配到双斜杠，返回双竖线样式
+                    if (match === '//') {
+                        return '<span class="pause-mark">‖</span>';
+                    }
+                    // 否则就是单斜杠，返回单竖线样式
+                    return '<span class="pause-mark">|</span>';
+                });
                 p.innerHTML = html;
             } else {
                 p.innerText = item.normal;
@@ -231,7 +236,7 @@
             contentDiv.appendChild(p);
         });
 
-        // 按钮样式切换
+        // 按钮文字切换逻辑
         if (isHintOn) {
             toggleBtn.classList.add('active');
             toggleBtn.innerText = "隐藏断句提示";
