@@ -3,234 +3,329 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 </title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <script src="https://unpkg.com/recorder-core/recorder.pcm.min.js"></script>
+    <title>PSC 朗读训练 - 纯净录音版</title>
+    
+    <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
+
     <style>
-        :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; --hint-color: #ff9800; }
-        body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
-        .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
-        .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
-        #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
-        .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
-        .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
-        .paragraph { margin-bottom: 20px; text-indent: 2em; text-align: justify; }
-        .pause-mark { color: var(--hint-color); font-weight: bold; margin: 0 4px; font-family: monospace; }
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
-        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
-        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; transition: transform 0.1s; }
-        #recordBtn:active { transform: scale(0.95); }
-        #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
-        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: bold; }
+        :root {
+            --hkust-blue: #003366;
+            --wechat-green: #07C160;
+            --wechat-red: #FA5151;
+            --hint-color: #ff9800;
+            --bg-color: #f5f5f5;
+        }
+
+        body {
+            font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部导航 */
+        .nav-bar {
+            background: white;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .back-btn {
+            border: none;
+            background: none;
+            color: var(--hkust-blue);
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .toggle-btn {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: var(--hkust-blue);
+            color: white;
+            border-color: var(--hkust-blue);
+        }
+
+        /* 阅读区域 */
+        .reading-area {
+            flex: 1;
+            padding: 20px 30px;
+            overflow-y: auto;
+            background: white;
+            line-height: 2.2; /* 增大行高，利于阅读 */
+            font-size: 20px;
+            color: #333;
+        }
+
+        .article-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 25px;
+            color: #000;
+        }
+
+        .paragraph {
+            margin-bottom: 25px;
+            text-indent: 2em; /* 首行缩进 */
+            text-align: justify; /* 两端对齐 */
+        }
+
+        /* 断句符号样式 */
+        .pause-mark {
+            color: var(--hint-color);
+            font-weight: bold;
+            margin: 0 3px;
+            font-family: Consolas, monospace;
+            font-size: 18px;
+        }
+
+        /* 底部控制栏 */
+        .control-panel {
+            background: white;
+            border-top: 1px solid #eee;
+            padding: 20px 20px 40px 20px; /* 底部留白多一点适配手机 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        #timer {
+            font-size: 28px;
+            font-weight: bold;
+            font-family: monospace;
+            margin-bottom: 15px;
+            color: var(--hkust-blue);
+        }
+
+        #recordBtn {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            border: none;
+            background: var(--wechat-green);
+            color: white;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(7, 193, 96, 0.3);
+            transition: transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #recordBtn:active {
+            transform: scale(0.95);
+        }
+
+        #recordBtn.recording {
+            background: var(--wechat-red);
+            animation: pulse 1.2s infinite;
+            box-shadow: 0 4px 8px rgba(250, 81, 81, 0.3);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 81, 81, 0.4); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(250, 81, 81, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 81, 81, 0); }
+        }
+
+        #status {
+            font-size: 14px;
+            color: #888;
+            margin-top: 12px;
+        }
+
+        /* 原生音频播放器 */
+        #audioPlayback {
+            width: 100%;
+            max-width: 350px;
+            margin-top: 15px;
+            display: none; /* 默认隐藏 */
+            height: 40px;
+        }
     </style>
 </head>
 <body>
 
     <div class="nav-bar">
-        <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
+        <button class="back-btn">❮ 返回</button>
         <button id="toggleHint" class="toggle-btn">显示断句提示</button>
     </div>
 
-    <div id="feedback-panel">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span>AI 评测总分：<span class="score-val" id="totalScore">--</span></span>
-            <button onclick="document.getElementById('feedback-panel').style.display='none'" style="background:none; border:none; color:#888; cursor:pointer;">✖</button>
-        </div>
-        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">等待数据...</div>
-    </div>
-
     <div class="reading-area">
-        <div style="text-align:center; font-weight:bold; font-size:24px; margin-bottom:20px;">《春》</div>
-        <div id="textContent"></div>
+        <div class="article-title">《春》</div>
+        <div id="textContent">
+            </div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="status">点击开始朗读全文</div>
+        <div id="status">点击开始录音</div>
+        <audio id="audioPlayback" controls></audio>
     </div>
 
 <script>
-    const CONFIG = {
-        APPID: "979154ce", 
-        API_KEY: "62051bfe38a7103fede0a6cb227fb3bb", 
-        API_SECRET: "NmY4ZmNiZjk3ZGRkNzFjM2RmMzg0NmQ5"
-    };
-
-    const springParagraphs = [
-        { normal: "盼望着，盼望着，东风来了，春天的脚步近了。", hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//" },
-        { normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。", hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//" },
-        { normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。", hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//" }
+    // ==========================================
+    // 1. 数据源：普通版文本 vs 断句版文本
+    // ==========================================
+    const articleData = [
+        {
+            normal: "盼望着，盼望着，东风来了，春天的脚步近了。",
+            hint: "盼望着，/ 盼望着，/ 东风来了，// 春天的脚步近了。//"
+        },
+        {
+            normal: "一切都像刚睡醒的样子，欣欣然张开了眼。山朗润起来了，水涨起来了，太阳的脸红起来了。",
+            hint: "一切都像刚睡醒的样子，/ 欣欣然张开了眼。// 山朗润起来了，/ 水涨起来了，/ 太阳的脸红起来了。//"
+        },
+        {
+            normal: "小草偷偷地从土里钻出来，嫩嫩的，绿绿的。园子里，田野里，瞧去，一大片一大片满是的。坐着，躺着，打两个滚，踢几脚球，赛几趟跑，捉几回迷藏。风轻悄悄的，草软绵绵的。",
+            hint: "小草偷偷地从土里钻出来，/ 嫩嫩的，/ 绿绿的。// 园子里，/ 田野里，/ 瞧去，/ 一大片一大片满是的。// 坐着，/ 躺着，/ 打两个滚，/ 踢几脚球，/ 赛几趟跑，/ 捉几回迷藏。// 风/ 轻悄悄的，/ 草/ 软绵绵的。//"
+        }
     ];
 
-    let showHint = false;
-    function renderText() {
-        const contentDiv = document.getElementById('textContent');
-        contentDiv.innerHTML = '';
-        springParagraphs.forEach(p => {
-            const div = document.createElement('div');
-            div.className = 'paragraph';
-            let text = showHint ? p.hint : p.normal;
-            text = text.replace(/\/\//g, '【双斜】').replace(/\//g, '【单斜】');
-            text = text.replace(/【双斜】/g, '<span class="pause-mark">//</span>').replace(/【单斜】/g, '<span class="pause-mark">/</span>');
-            div.innerHTML = text;
-            contentDiv.appendChild(div);
-        });
-        document.getElementById('toggleHint').classList.toggle('active', showHint);
-    }
-    document.getElementById('toggleHint').onclick = () => { showHint = !showHint; renderText(); };
-    renderText();
+    // ==========================================
+    // 2. 文本渲染逻辑 (切换断句)
+    // ==========================================
+    let isHintOn = false;
+    const contentDiv = document.getElementById('textContent');
+    const toggleBtn = document.getElementById('toggleHint');
 
-    let rec;
-    document.getElementById('recordBtn').onclick = () => {
-        if (!rec || !rec.started) startRec(); else stopRec();
+    function render() {
+        contentDiv.innerHTML = ''; // 清空当前内容
+        
+        articleData.forEach(item => {
+            const p = document.createElement('div');
+            p.className = 'paragraph';
+            
+            if (isHintOn) {
+                // 如果开启提示，把 "/" 替换成带颜色的符号
+                let html = item.hint
+                    .replace(/\/\//g, '<span class="pause-mark">‖</span>') // 双斜杠换成双竖线
+                    .replace(/\//g, '<span class="pause-mark">|</span>');  // 单斜杠换成单竖线
+                p.innerHTML = html;
+            } else {
+                p.innerText = item.normal;
+            }
+            
+            contentDiv.appendChild(p);
+        });
+
+        // 按钮样式切换
+        if (isHintOn) {
+            toggleBtn.classList.add('active');
+            toggleBtn.innerText = "隐藏断句提示";
+        } else {
+            toggleBtn.classList.remove('active');
+            toggleBtn.innerText = "显示断句提示";
+        }
+    }
+
+    // 绑定点击事件
+    toggleBtn.onclick = () => {
+        isHintOn = !isHintOn;
+        render();
     };
 
-    function startRec() {
-        // 🚀 核心替换：直接使用 PCM 原生引擎，告别一切格式兼容坑
-        rec = Recorder({
-            type: "pcm", 
-            sampleRate: 16000, 
-            bitRate: 16, 
-            numChannels: 1, 
-            onProcess: (buffers, powerLevel, duration) => {
-                document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
-            }
-        });
-        
-        rec.open(() => { 
-            rec.start(); 
-            rec.started = true; 
-            document.getElementById('recordBtn').classList.add('recording'); 
-            document.getElementById('status').innerText = "🔴 录音中，采集中..."; 
-            document.getElementById('feedback-panel').style.display = 'none';
-        });
-    }
+    // 初始化渲染
+    render();
 
-    function stopRec() {
-        rec.stop((blob, duration) => {
-            rec.started = false;
-            document.getElementById('recordBtn').classList.remove('recording');
-            if (duration < 1500) {
-                document.getElementById('status').innerText = "⚠️ 录音太短，请重试";
-                return;
-            }
-            // PCM 格式无法在浏览器原生 <audio> 播放，所以隐藏了播放器，只做评测
-            callIfeISE(blob);
-        });
-    }
+    // ==========================================
+    // 3. 录音功能逻辑 (无后端交互)
+    // ==========================================
+    let rec; // 录音对象
+    let isRecording = false;
+    const recordBtn = document.getElementById('recordBtn');
+    const statusText = document.getElementById('status');
+    const timerDisplay = document.getElementById('timer');
+    const audioPlayer = document.getElementById('audioPlayback');
 
-    function getAuthUrl() {
-        const host = "ise-api.xfyun.cn", date = new Date().toUTCString();
-        const signatureOrigin = `host: ${host}\ndate: ${date}\nGET /v2/open-ise HTTP/1.1`;
-        const signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA256(signatureOrigin, CONFIG.API_SECRET));
-        const authOrigin = `api_key="${CONFIG.API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-        return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
-    }
-
-    // 完美文本编码器
-    function getStandardTextBase64() {
-        let rawText = springParagraphs.map(p => p.normal).join('');
-        let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！；：“”‘’]/g, ''); 
-        let utf8Str = '\uFEFF' + cleanText; 
-        let words = CryptoJS.enc.Utf8.parse(utf8Str);
-        return CryptoJS.enc.Base64.stringify(words);
-    }
-
-    // 优化的 Base64 转换工具
-    function bufferToBase64(buffer) {
-        let binary = '';
-        let bytes = new Uint8Array(buffer);
-        let len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
+    recordBtn.onclick = function() {
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
         }
-        return window.btoa(binary);
-    }
+    };
 
-    async function callIfeISE(audioBlob) {
-        document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 握手成功，传输规范音频流...";
-
-        // 🚀 因为用了 pcm 引擎，这里的 buffer 已经是 100% 纯度的声音数据，不用再切除 44 字节的头了！
-        const buffer = await audioBlob.arrayBuffer();
-        const dataArray = new Uint8Array(buffer); 
-        
-        const ws = new WebSocket(getAuthUrl());
-        const chunkSize = 1280; 
-        let offset = 0;
-
-        ws.onopen = () => {
-            const sendNext = () => {
-                if (ws.readyState !== 1) return;
-                
-                if (offset >= dataArray.length) {
-                    // 🚀 终极修复：最后一帧，明确告知服务器 aus: 4（结束封口）！
-                    ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 4 },
-                        data: { status: 2, data: "" }
-                    }));
-                    return;
-                }
-                
-                let end = Math.min(offset + chunkSize, dataArray.length);
-                let chunk = dataArray.slice(offset, end);
-                let base64Chunk = bufferToBase64(chunk);
-                
-                if (offset === 0) {
-                    ws.send(JSON.stringify({
-                        common: {app_id: CONFIG.APPID},
-                        business: {
-                            category: "read_chapter",
-                            aue: "raw", 
-                            auf: "audio/L16;rate=16000",
-                            rstcd: "utf8", 
-                            sub: "ise", 
-                            ent: "zh_cn", 
-                            tte: "utf-8", 
-                            cmd: "ssb",
-                            text: getStandardTextBase64() 
-                        },
-                        data: {status: 0, data: base64Chunk}
-                    }));
-                } else {
-                    // 🚀 终极修复：中间帧，明确告知服务器 aus: 2（追加音频）！绝不再用 1 重置它的内存了！
-                    ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 2 },
-                        data: { status: 1, data: base64Chunk }
-                    }));
-                }
-                offset = end;
-                setTimeout(sendNext, 40); 
-            };
-            sendNext();
-        };
-
-        ws.onmessage = (e) => {
-            const res = JSON.parse(e.data);
-            if (res.code === 0 && res.data && res.data.result) {
-                const xml = atob(res.data.result);
-                const score = xml.match(/total_score="([^"]+)"/)[1];
-                document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 成功打通！详细声学诊断已输出至终端。";
-                document.getElementById('status').innerText = "✅ 评测完成";
-                console.log("【最终得分 XML 报告】\n", xml);
-                ws.close();
-            } else if (res.code !== 0) {
-                document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
-                document.getElementById('status').innerText = "❌ 评测被拒";
-                ws.close();
+    function startRecording() {
+        // 配置录音机：使用 wav 格式，16000采样率 (标准语音处理格式)
+        rec = Recorder({
+            type: "wav",
+            sampleRate: 16000,
+            bitRate: 16,
+            onProcess: function(buffers, powerLevel, duration) {
+                // 实时更新计时器
+                // duration 是毫秒，转成 00:00 格式
+                let totalSeconds = Math.floor(duration / 1000);
+                let mm = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+                let ss = (totalSeconds % 60).toString().padStart(2, '0');
+                timerDisplay.innerText = `${mm}:${ss}`;
             }
-        };
+        });
 
-        ws.onerror = () => {
-            document.getElementById('status').innerText = "❌ WebSocket 断开";
-        };
+        // 打开麦克风
+        rec.open(function() {
+            // 开始录音
+            rec.start();
+            isRecording = true;
+            
+            // UI 更新
+            recordBtn.classList.add('recording');
+            recordBtn.innerText = "停止";
+            statusText.innerText = "🔴 录音进行中...";
+            audioPlayer.style.display = 'none'; // 录音时隐藏播放器
+            
+        }, function(msg, isUserNotAllow) {
+            alert((isUserNotAllow ? "请授权录音权限" : "无法打开麦克风") + "：" + msg);
+        });
     }
+
+    function stopRecording() {
+        if (!rec) return;
+
+        rec.stop(function(blob, duration) {
+            // 录音结束回调
+            isRecording = false;
+            
+            // UI 更新
+            recordBtn.classList.remove('recording');
+            recordBtn.innerText = "重录";
+            statusText.innerText = "✅ 录音完成，点击下方播放器试听";
+            
+            // 生成音频 URL 并给播放器
+            const audioUrl = URL.createObjectURL(blob);
+            audioPlayer.src = audioUrl;
+            audioPlayer.style.display = 'block'; // 显示播放器
+            
+            // 可以在这里加一个下载功能：
+            // Recorder.download(blob, "我的朗读作品");
+
+        }, function(msg) {
+            alert("录音失败:" + msg);
+        });
+    }
+
 </script>
 </body>
 </html>
