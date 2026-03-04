@@ -65,7 +65,7 @@
             type: "wav", 
             sampleRate: 16000, 
             bitRate: 16, 
-            numChannels: 1, // 锁死单声道
+            numChannels: 1, 
             onProcess: (buffers, powerLevel, duration) => {
                 document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
             }
@@ -100,19 +100,13 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    // 🚀 最标准、合规的文本编码器
     function getStandardTextBase64() {
-        // 恢复了标点符号，让引擎能够正确断句
         let cleanText = "盼望着，盼望着，东风来了，春天的脚步近了。";
-        
         const encoder = new TextEncoder();
         const bytes = encoder.encode(cleanText);
         const combined = new Uint8Array(3 + bytes.length);
         
-        // 精准打上 UTF-8 的 BOM 头
-        combined[0] = 0xEF; 
-        combined[1] = 0xBB; 
-        combined[2] = 0xBF;
+        combined[0] = 0xEF; combined[1] = 0xBB; combined[2] = 0xBF;
         combined.set(bytes, 3);
         
         let binary = '';
@@ -128,8 +122,6 @@
         document.getElementById('status').innerText = "🔄 发送高对齐度音频...";
 
         const buffer = await audioBlob.arrayBuffer();
-        
-        // 🚀 核心：Recorder.js 生成的 wav 头是定死 44 字节的，直接切掉，完美获取 16-bit PCM 裸流
         const dataArray = new Uint8Array(buffer).slice(44); 
         
         const ws = new WebSocket(getAuthUrl());
@@ -163,7 +155,7 @@
                             ent: "cn_vip", 
                             tte: "utf-8", 
                             cmd: "ssb", 
-                            ttp: "text", // 🚀 救命参数：强制声明这是纯文本，别当 XML 解析！
+                            // 💥 已经删除了刚才报错的 ttp 字段
                             text: getStandardTextBase64() 
                         },
                         data: {status: 0, data: base64Chunk}
