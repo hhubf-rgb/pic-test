@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 - 终极协议版</title>
+    <title>PSC 智能评测 </title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
     <style>
@@ -12,7 +12,7 @@
         .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
         .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
         .toggle-btn { background: #f0f0f0; border: 1px solid #ddd; padding: 6px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .toggle-btn.active { background: var(--hkust-blue); color: white; }
+        .toggle-btn.active { background: var(--hkust-blue); color: white; border-color: var(--hkust-blue); }
         #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
         .reading-area { flex: 1; padding: 20px 30px; overflow-y: auto; background: white; line-height: 2.4; font-size: 20px; }
@@ -51,7 +51,7 @@
     <div class="control-panel">
         <div id="timer">00:00</div>
         <button id="recordBtn">录音</button>
-        <div id="status">点击开始朗读全文</div>
+        <div id="status">点击开始朗读</div>
         <audio id="audioPlayback" controls></audio>
     </div>
 
@@ -134,34 +134,62 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
+    // 🚀 最硬核的 PCM 提取器：无视浏览器变异，精准扫描数据块
+    function extractPCM(arrayBuffer) {
+        let view = new DataView(arrayBuffer);
+        if (view.getUint32(0, false) !== 0x52494646) return new Uint8Array(arrayBuffer); // 非 RIFF 格式则兜底返回
+        let offset = 12; 
+        while (offset < view.byteLength) {
+            let chunkId = view.getUint32(offset, false);
+            let chunkSize = view.getUint32(offset + 4, true);
+            if (chunkId === 0x64617461) { // 找到 'data' 标识
+                return new Uint8Array(arrayBuffer, offset + 8, chunkSize);
+            }
+            offset += 8 + chunkSize;
+        }
+        return new Uint8Array(arrayBuffer).slice(44); // 极限兜底
+    }
+
+    // 🚀 完美的文本编码器：UTF-8 BOM + 标准 Base64
     function getStandardTextBase64() {
         let rawText = springParagraphs.map(p => p.normal).join('');
         let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！；：“”‘’]/g, ''); 
-        let utf8Str = '\uFEFF' + cleanText; 
-        let words = CryptoJS.enc.Utf8.parse(utf8Str);
-        return CryptoJS.enc.Base64.stringify(words);
+        
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(cleanText);
+        const combined = new Uint8Array(3 + bytes.length);
+        
+        // 植入 \xEF\xBB\xBF (BOM)
+        combined[0] = 0xEF; combined[1] = 0xBB; combined[2] = 0xBF;
+        combined.set(bytes, 3);
+        
+        let binary = '';
+        for (let i = 0; i < combined.length; i++) {
+            binary += String.fromCharCode(combined[i]);
+        }
+        return window.btoa(binary);
     }
 
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 发送高对齐度音频...";
+        document.getElementById('status').innerText = "🔄 验证完毕，流式传输开启...";
 
         const buffer = await audioBlob.arrayBuffer();
-        const dataArray = new Uint8Array(buffer).slice(44); 
+        const dataArray = extractPCM(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
-        const chunkSize = 1280; 
+        const chunkSize = 1280; // 严格的 40ms 帧大小
         let offset = 0;
 
         ws.onopen = () => {
             const sendNext = () => {
                 if (ws.readyState !== 1) return;
                 
+                // 🚀 核心修复：结束帧，不再发送空音频，仅发送状态封口！
                 if (offset >= dataArray.length) {
-                    // 🚀 核心修复 1：最后一帧，明确声明 aus: 4 并且 status: 2，完美封口！
                     ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 4 }, 
+                        business: { cmd: "auw", aus: 2 }, 
                         data: { status: 2, data: "" }
                     }));
                     return;
@@ -175,10 +203,11 @@
                 let base64Chunk = window.btoa(binary);
                 
                 if (offset === 0) {
+                    // 第一帧：携带握手参数和文本
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", 
+                            category: "read_chapter", // 长文模式
                             aue: "raw", 
                             rstcd: "utf8", 
                             sub: "ise", 
@@ -190,14 +219,14 @@
                         data: {status: 0, data: base64Chunk}
                     }));
                 } else {
-                    // 🚀 核心修复 2：中间的所有音频帧，必须明确声明 aus: 2！不能再传 1 进去捣乱了。
+                    // 中间帧：持续补给音频数据
                     ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 2 }, 
+                        business: { cmd: "auw", aus: 1 }, 
                         data: { status: 1, data: base64Chunk }
                     }));
                 }
                 offset = end;
-                setTimeout(sendNext, 40); 
+                setTimeout(sendNext, 40); // 维持心跳间隔
             };
             sendNext();
         };
@@ -208,9 +237,9 @@
                 const xml = atob(res.data.result);
                 const score = xml.match(/total_score="([^"]+)"/)[1];
                 document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 测试打通！快看控制台的详细 XML 报告！";
+                document.getElementById('feedback-msg').innerText = "✅ 满血打通！详细声学诊断已输出至终端。";
                 document.getElementById('status').innerText = "✅ 评测完成";
-                console.log("【成功得分报告】\n", xml);
+                console.log("【最终得分 XML 报告】\n", xml);
                 ws.close();
             } else if (res.code !== 0) {
                 document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
