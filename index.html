@@ -3,50 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>普通话水平测试 (PSC) 智能评测系统</title>
+    <title>PSC 智能评测 - 终极破壁版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
     <style>
         :root { --wechat-green: #07C160; --wechat-red: #FA5151; --hkust-blue: #003366; }
-        body { font-family: -apple-system, "PingFang SC", sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        body { font-family: -apple-system, sans-serif; background: #f5f5f5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .nav-bar { background: white; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; }
         .back-btn { background: none; border: none; color: var(--hkust-blue); font-weight: bold; cursor: pointer; text-decoration: none; font-size: 15px; }
         #feedback-panel { background: #e6f7ff; border: 1px solid #91d5ff; margin: 15px; padding: 15px; border-radius: 8px; display: none; }
         .score-val { font-size: 28px; font-weight: bold; color: var(--hkust-blue); }
-        .reading-area { flex: 1; padding: 30px; background: white; line-height: 2.4; font-size: 20px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+        .reading-area { flex: 1; padding: 20px 30px; background: white; line-height: 2.4; font-size: 20px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
         .paragraph { font-weight: bold; color: #333; font-size: 26px; letter-spacing: 2px;}
-        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 25px; text-align: center; }
-        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; color: #333; }
-        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.1s; }
-        #recordBtn:active { transform: scale(0.95); }
+        .control-panel { background: #fff; border-top: 1px solid #eee; padding: 20px; text-align: center; }
+        #timer { font-size: 28px; font-weight: bold; margin-bottom: 15px; font-family: monospace; }
+        #recordBtn { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--wechat-green); color: white; cursor: pointer; }
         #recordBtn.recording { background: var(--wechat-red); animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 81, 81, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(250, 81, 81, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(250, 81, 81, 0); } }
-        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: 500; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+        #status { font-size: 14px; color: #666; margin-top: 12px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="nav-bar">
         <a href="javascript:history.back()" class="back-btn">❮ 返回</a>
-        <div style="font-size:14px; color:var(--hkust-blue); font-weight:bold;">语音评测核心链路验证</div>
+        <div style="font-size:14px; color:var(--hkust-blue); font-weight:bold;">PSC 核心评测连通测试</div>
     </div>
 
     <div id="feedback-panel">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span>AI 综合声学评分：<span class="score-val" id="totalScore">--</span></span>
+            <span>总分：<span class="score-val" id="totalScore">--</span></span>
         </div>
-        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">系统初始化完毕，等待指令。</div>
+        <div id="feedback-msg" style="margin-top:10px; font-size:13px; color:#555;">等待数据...</div>
     </div>
 
     <div class="reading-area">
-        <div id="textContent" class="paragraph">盼望着盼望着东风来了春天的脚步近了</div>
-        <div style="font-size: 13px; color: #888; margin-top: 20px;">[ 系统提示：为确保底层连通性测试之稳定性，当前文本已暂且过滤标点符号 ]</div>
+        <div id="textContent" class="paragraph">盼望着，盼望着，东风来了，春天的脚步近了。</div>
+        <div style="font-size: 14px; color: #999; margin-top: 15px;">（测试模式：恢复标准断句标点）</div>
     </div>
 
     <div class="control-panel">
         <div id="timer">00:00</div>
-        <button id="recordBtn"></button>
-        <div id="status">请点击上方按钮，并匀速清晰地朗读测试文本</div>
+        <button id="recordBtn">录音</button>
+        <div id="status">点击朗读上面的句子</div>
     </div>
 
 <script>
@@ -66,7 +65,7 @@
             type: "wav", 
             sampleRate: 16000, 
             bitRate: 16, 
-            numChannels: 1, 
+            numChannels: 1, // 锁死单声道
             onProcess: (buffers, powerLevel, duration) => {
                 document.getElementById('timer').innerText = new Date(duration).toISOString().substr(14, 5);
             }
@@ -76,10 +75,8 @@
             rec.start(); 
             rec.started = true; 
             document.getElementById('recordBtn').classList.add('recording'); 
-            document.getElementById('status').innerText = "🔴 正在采集流媒体音频，请保持发音清晰..."; 
+            document.getElementById('status').innerText = "🔴 录音中，请确保发音清晰..."; 
             document.getElementById('feedback-panel').style.display = 'none';
-        }, (msg) => {
-            alert("音频输入设备访问受限，请检查系统权限设置: " + msg);
         });
     }
 
@@ -88,7 +85,7 @@
             rec.started = false;
             document.getElementById('recordBtn').classList.remove('recording');
             if (duration < 1500) {
-                document.getElementById('status').innerText = "⚠️ 音频采样时长不足，请重新录制";
+                document.getElementById('status').innerText = "⚠️ 录音太短，请重试";
                 return;
             }
             callIfeISE(blob);
@@ -103,21 +100,36 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    // 核心一：密码学级文本编码器
-    function getBulletproofTextBase64() {
-        let cleanText = "盼望着盼望着东风来了春天的脚步近了";
-        let utf8Str = '\uFEFF' + cleanText; 
-        let words = CryptoJS.enc.Utf8.parse(utf8Str);
-        let base64 = CryptoJS.enc.Base64.stringify(words);
-        return base64;
+    // 🚀 最标准、合规的文本编码器
+    function getStandardTextBase64() {
+        // 恢复了标点符号，让引擎能够正确断句
+        let cleanText = "盼望着，盼望着，东风来了，春天的脚步近了。";
+        
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(cleanText);
+        const combined = new Uint8Array(3 + bytes.length);
+        
+        // 精准打上 UTF-8 的 BOM 头
+        combined[0] = 0xEF; 
+        combined[1] = 0xBB; 
+        combined[2] = 0xBF;
+        combined.set(bytes, 3);
+        
+        let binary = '';
+        for (let i = 0; i < combined.length; i++) {
+            binary += String.fromCharCode(combined[i]);
+        }
+        return window.btoa(binary);
     }
 
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
-        document.getElementById('totalScore').innerText = "引擎分析中...";
-        document.getElementById('status').innerText = "🔄 正在向云端引擎实时传输数据...";
+        document.getElementById('totalScore').innerText = "评测中...";
+        document.getElementById('status').innerText = "🔄 发送高对齐度音频...";
 
         const buffer = await audioBlob.arrayBuffer();
+        
+        // 🚀 核心：Recorder.js 生成的 wav 头是定死 44 字节的，直接切掉，完美获取 16-bit PCM 裸流
         const dataArray = new Uint8Array(buffer).slice(44); 
         
         const ws = new WebSocket(getAuthUrl());
@@ -146,8 +158,13 @@
                         business: {
                             category: "read_sentence", 
                             aue: "raw", 
-                            rstcd: "utf8", sub: "ise", ent: "cn_vip", tte: "utf-8", cmd: "ssb", 
-                            text: getBulletproofTextBase64() 
+                            rstcd: "utf8", 
+                            sub: "ise", 
+                            ent: "cn_vip", 
+                            tte: "utf-8", 
+                            cmd: "ssb", 
+                            ttp: "text", // 🚀 救命参数：强制声明这是纯文本，别当 XML 解析！
+                            text: getStandardTextBase64() 
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
@@ -166,20 +183,19 @@
                 const xml = atob(res.data.result);
                 const score = xml.match(/total_score="([^"]+)"/)[1];
                 document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 评测流转成功。系统已在终端 (Console) 输出详细 XML 声学诊断报告。";
-                document.getElementById('status').innerText = "✅ 交互流程已完成";
-                console.log("【云端声学诊断 XML 原始数据】\n", xml);
+                document.getElementById('feedback-msg').innerText = "✅ 测试打通！快看控制台的详细 XML 报告！";
+                document.getElementById('status').innerText = "✅ 评测完成";
+                console.log("【成功得分报告】\n", xml);
                 ws.close();
             } else if (res.code !== 0) {
-                document.getElementById('feedback-msg').innerText = `评测请求被拒绝 (错误代码: ${res.code})`;
-                document.getElementById('status').innerText = "❌ 接口响应异常";
+                document.getElementById('feedback-msg').innerText = `API 报错 (${res.code}): ${res.message}`;
+                document.getElementById('status').innerText = "❌ 评测被拒";
                 ws.close();
             }
         };
 
         ws.onerror = () => {
-            document.getElementById('feedback-msg').innerText = "无法建立底层通信链路，请检查网络环境或跨域策略。";
-            document.getElementById('status').innerText = "❌ 传输层连接断开";
+            document.getElementById('status').innerText = "❌ WebSocket 断开";
         };
     }
 </script>
