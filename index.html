@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PSC 智能评测 </title>
+    <title>PSC 智能评测 - 终极胜利版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="https://unpkg.com/recorder-core/recorder.wav.min.js"></script>
     <style>
@@ -134,62 +134,46 @@
         return `wss://${host}/v2/open-ise?authorization=${btoa(authOrigin)}&date=${encodeURIComponent(date)}&host=${host}`;
     }
 
-    // 🚀 最硬核的 PCM 提取器：无视浏览器变异，精准扫描数据块
     function extractPCM(arrayBuffer) {
         let view = new DataView(arrayBuffer);
-        if (view.getUint32(0, false) !== 0x52494646) return new Uint8Array(arrayBuffer); // 非 RIFF 格式则兜底返回
+        if (view.getUint32(0, false) !== 0x52494646) return new Uint8Array(arrayBuffer);
         let offset = 12; 
         while (offset < view.byteLength) {
             let chunkId = view.getUint32(offset, false);
             let chunkSize = view.getUint32(offset + 4, true);
-            if (chunkId === 0x64617461) { // 找到 'data' 标识
+            if (chunkId === 0x64617461) { 
                 return new Uint8Array(arrayBuffer, offset + 8, chunkSize);
             }
             offset += 8 + chunkSize;
         }
-        return new Uint8Array(arrayBuffer).slice(44); // 极限兜底
+        return new Uint8Array(arrayBuffer).slice(44); 
     }
 
-    // 🚀 完美的文本编码器：UTF-8 BOM + 标准 Base64
     function getStandardTextBase64() {
         let rawText = springParagraphs.map(p => p.normal).join('');
         let cleanText = rawText.replace(/[^\u4e00-\u9fa5，。？！；：“”‘’]/g, ''); 
-        
-        const encoder = new TextEncoder();
-        const bytes = encoder.encode(cleanText);
-        const combined = new Uint8Array(3 + bytes.length);
-        
-        // 植入 \xEF\xBB\xBF (BOM)
-        combined[0] = 0xEF; combined[1] = 0xBB; combined[2] = 0xBF;
-        combined.set(bytes, 3);
-        
-        let binary = '';
-        for (let i = 0; i < combined.length; i++) {
-            binary += String.fromCharCode(combined[i]);
-        }
-        return window.btoa(binary);
+        return window.btoa(unescape(encodeURIComponent('\uFEFF' + cleanText)));
     }
 
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 验证完毕，流式传输开启...";
+        document.getElementById('status').innerText = "🔄 流式传输开启...";
 
         const buffer = await audioBlob.arrayBuffer();
         const dataArray = extractPCM(buffer); 
         
         const ws = new WebSocket(getAuthUrl());
-        const chunkSize = 1280; // 严格的 40ms 帧大小
+        const chunkSize = 1280; 
         let offset = 0;
 
         ws.onopen = () => {
             const sendNext = () => {
                 if (ws.readyState !== 1) return;
                 
-                // 🚀 核心修复：结束帧，不再发送空音频，仅发送状态封口！
                 if (offset >= dataArray.length) {
+                    // 🚀 核心终极修复：最后一帧，绝对只发 data 节点，绝不发 business 干扰服务器！
                     ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 2 }, 
                         data: { status: 2, data: "" }
                     }));
                     return;
@@ -203,30 +187,28 @@
                 let base64Chunk = window.btoa(binary);
                 
                 if (offset === 0) {
-                    // 第一帧：携带握手参数和文本
+                    // 第一帧：携带所有的配置和文本
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
-                            category: "read_chapter", // 长文模式
+                            category: "read_chapter",
                             aue: "raw", 
                             rstcd: "utf8", 
                             sub: "ise", 
                             ent: "cn_vip", 
                             tte: "utf-8", 
-                            cmd: "ssb", 
                             text: getStandardTextBase64() 
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
                 } else {
-                    // 中间帧：持续补给音频数据
+                    // 🚀 核心终极修复：中间帧，绝对只发 data 节点，绝不发 business 覆写配置！
                     ws.send(JSON.stringify({
-                        business: { cmd: "auw", aus: 1 }, 
                         data: { status: 1, data: base64Chunk }
                     }));
                 }
                 offset = end;
-                setTimeout(sendNext, 40); // 维持心跳间隔
+                setTimeout(sendNext, 40); 
             };
             sendNext();
         };
