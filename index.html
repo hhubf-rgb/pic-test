@@ -158,7 +158,7 @@
     async function callIfeISE(audioBlob) {
         document.getElementById('feedback-panel').style.display = 'block';
         document.getElementById('totalScore').innerText = "评测中...";
-        document.getElementById('status').innerText = "🔄 流式传输开启...";
+        document.getElementById('status').innerText = "🔄 握手成功，传输规范流...";
 
         const buffer = await audioBlob.arrayBuffer();
         const dataArray = extractPCM(buffer); 
@@ -172,8 +172,9 @@
                 if (ws.readyState !== 1) return;
                 
                 if (offset >= dataArray.length) {
-                    // 🚀 核心终极修复：最后一帧，绝对只发 data 节点，绝不发 business 干扰服务器！
+                    // 🚀 终极修复：把 cmd 加回来，并严格设定 aus 为 2（结束帧）
                     ws.send(JSON.stringify({
+                        business: { cmd: "auw", aus: 2 },
                         data: { status: 2, data: "" }
                     }));
                     return;
@@ -187,23 +188,26 @@
                 let base64Chunk = window.btoa(binary);
                 
                 if (offset === 0) {
-                    // 第一帧：携带所有的配置和文本
+                    // 第一帧
                     ws.send(JSON.stringify({
                         common: {app_id: CONFIG.APPID},
                         business: {
                             category: "read_chapter",
                             aue: "raw", 
+                            auf: "audio/L16;rate=16000", // 💥 强力护盾：明确锁定音频格式，防止 8195
                             rstcd: "utf8", 
                             sub: "ise", 
                             ent: "cn_vip", 
                             tte: "utf-8", 
+                            cmd: "ssb",
                             text: getStandardTextBase64() 
                         },
                         data: {status: 0, data: base64Chunk}
                     }));
                 } else {
-                    // 🚀 核心终极修复：中间帧，绝对只发 data 节点，绝不发 business 覆写配置！
+                    // 🚀 终极修复：把 cmd 加回来，并严格设定 aus 为 1（中间帧）
                     ws.send(JSON.stringify({
+                        business: { cmd: "auw", aus: 1 },
                         data: { status: 1, data: base64Chunk }
                     }));
                 }
@@ -219,7 +223,7 @@
                 const xml = atob(res.data.result);
                 const score = xml.match(/total_score="([^"]+)"/)[1];
                 document.getElementById('totalScore').innerText = score;
-                document.getElementById('feedback-msg').innerText = "✅ 满血打通！详细声学诊断已输出至终端。";
+                document.getElementById('feedback-msg').innerText = "✅ 成功打通！可以点击下方播放器回听录音。";
                 document.getElementById('status').innerText = "✅ 评测完成";
                 console.log("【最终得分 XML 报告】\n", xml);
                 ws.close();
